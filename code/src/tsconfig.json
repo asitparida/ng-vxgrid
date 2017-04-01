@@ -1,0 +1,37 @@
+{
+    "compileOnSave": false,
+    "compilerOptions": {
+        "rootDir": "../",
+        "baseUrl": "",
+        "declaration": false,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "jsx": "react",        
+        "lib": [
+            "es6",
+            "dom"
+        ],
+        "mapRoot": "src",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "outDir": "dist/out-tsc",
+        "sourceMap": true,
+        "target": "es5",
+        "typeRoots": [
+            "node_modules/@types"
+        ],
+        "types": [
+          "jasmine",
+          "core-js",
+          "node",
+          "underscore",
+          "jquery",
+          "mithril"
+        ]
+    },
+    "exclude": [
+        "node_modules",
+        "dist",
+        "test.ts"
+    ]
+}
