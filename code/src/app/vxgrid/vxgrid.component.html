@@ -1,0 +1,111 @@
+<div class="vxH100 vx-grid-inner vx-grid-related ">
+    <div class="row">
+        <div class="col">
+            <div class="col vsTableStats pull-left zeroPaddingLeft" *ngIf="baseConfig.showGridStats">
+                <p class="statTitle">All</p>
+                <p class="statValue">{{baseConfig.vxFilteredData.length | vxNumberFixedLen:2}}</p>
+                <p class="statTitle" [class.disabled]="multiBoxFilters.length == 0">Filtered</p>
+                <p class="statValue" [class.disabled]="multiBoxFilters.length == 0">
+                    <span *ngIf="multiBoxFilters.length > 0">
+                                <span>{{baseConfig.vxFilteredData.length | vxNumberFixedLen:2}}</span>
+                    </span>
+                    <span *ngIf="multiBoxFilters.length == 0">00</span>
+                </p>
+                <p class="statTitle" [class.disabled]="baseSettings.multiSelected.length == 0">Selected</p>
+                <p class="statValue" [class.disabled]="baseSettings.multiSelected.length == 0">{{baseSettings.multiSelected.length | vxNumberFixedLen:2}}</p>
+            </div>
+            <div class="col vxTableOperations pull-right zeroPaddingRight" *ngIf="baseConfig.showGridOptions">
+                <div class="search-container pull-left input-group" *ngIf="false">
+                    <input class="search form-control" type="search" [disabled]="baseConfig.vxFilteredData.length == 0 || true" [(ngModel)]="baseSettings.searchToken"
+                        placeholder="Search" (keyup)="keyUpSearch($event)" aria-label="search table" />
+                </div>
+                <div class="icon-container pull-left" role="button" tabindex="0" *ngIf="baseConfig.inlineEditingEnabled == true && baseConfig.inlineAddRowEnabled == true && false"
+                    (click)="addNewRow()" aria-label="add new row">
+                    <i class="icon icon-add"></i>
+                </div>
+                <div class="icon-container pull-left" role="button" [attr.tabindex]="editInProgressCount() == 0 ? -1 : 0" *ngIf="baseConfig.inlineEditingEnabled == true && editInProgressCount() > 0 && false"
+                    [class.disabled]="editInProgressCount() == 0" (click)="revertEdits()" aria-label="revert edits">
+                    <i class="icon icon-revert"></i>
+                </div>
+                <div class="icon-container pull-left" role="button" tabindex="0" *ngIf="baseSettings.multiSelected.length > 0" (click)="deleteRows()"
+                    aria-label="delete rows">
+                    <i class="icon icon-trash"></i>
+                </div>
+                <div class="icon-container pull-left" role="button" [attr.tabindex]="baseSettings.selectAllEnabled == false && baseConfig.multiSelectionEnabled == true ? -1 : 0"
+                    [class.disabled]="(baseSettings.selectAllEnabled == false && baseConfig.multiSelectionEnabled == true) || baseConfig.vxFilteredData.length == 0"
+                    (click)="selectAllFiltered()" aria-label="select all filtered rows">
+                    <i class="icon icon-openwith"></i>
+                </div>
+                <div class="icon-container pull-left" role="button" [attr.tabindex]="baseSettings.multiSelected.length == 0 ? -1 : 0" [class.disabled]="baseSettings.multiSelected.length == 0"
+                    (click)="clearSelection()" aria-label="clear any row selections">
+                    <i class="icon icon-clearselection"></i>
+                </div>
+                <div class="icon-container pull-left" [class.active]="baseSettings.revealWrapRowData" (click)="revealWrapToggle()" [class.disabled]="baseConfig.vxFilteredData.length == 0"
+                    aria-label="toggle row content reveal">
+                    <i class="icon icon-more"></i>
+                </div>
+                <div class="icon-container pull-left" role="button" [attr.tabindex]="multiBoxFilters.length == 0 ? -1 : 0" [class.disabled]="multiBoxFilters.length == 0"
+                    (click)="clearFilters()" aria-label="clear any filters applied">
+                    <i class="icon icon-refresh"></i>
+                </div>
+                <div class="icon-container pull-left" [class.active]="baseSettings.menu" (click)="openManageColumns()" aria-label="open manage columns modal">
+                    <i class="icon icon-repair"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 vxTableScrollContainer" [attr.id]="'_vxOverallScroll' + baseConfig.id" [class.attrPaneOpen]="baseConfig.showGridStats || baseConfig.showGridOptions">
+        <div class="col-12 vxTableContainer ms-datatable ang-dt zeroPadding scrollDupHeader scrollDupHeaderAdded" [style.minWidth]="baseSettings.netWidth + 'px'">
+            <div class='row marg0' tabindex="0">
+                <div class="col-12 vxTableHolder pad0">
+                    <table class="vxTable" role="presentation">
+                        <thead class="vxHead">
+                            <tr class="vxHeadRow">
+                                <ng-container *ngFor="let head of baseConfig.headers">
+                                    <th class="vxHeadRowCell" tabindex="-1" [style.width]="head.width + 'px'" *ngIf="head.hidden == false" [attr.id]="baseConfig.id + '_vxHeadSt_' + head.id">
+                                        <span *ngIf="head.renderHeadDefn != true">{{head.columnName}}</span>
+                                        <div *ngIf="head.renderHeadDefn == true && head.id == 'checkbox' && baseConfig.allRowsSelectionEnabled">
+                                            <div class="vx-row-select">
+                                                <input class="vx-row-select-toggle" type="checkbox" [disabled]="baseConfig.noData == true && baseConfig.allRowSelectionDisabled == true"
+                                                    [(ngModel)]="baseSettings.allRowSelected" (change)="allRowSelectionChanged()"
+                                                    aria-label="Select All Rows " />
+                                            </div>
+                                        </div>
+                                    </th>
+                                </ng-container>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 vxTableContainer ms-datatable ang-dt zeroPadding scrollTableContainer" [style.minWidth]="baseSettings.netWidth + 'px'"
+            [attr.id]="'_vxScrollContainer' + baseConfig.id" style="margin-top: 0;">
+            <div class='row marg0'>
+                <div class="col-12 vxTableHolder pad0">
+                    <table class="vxTable">
+                        <caption class="offscreen"></caption>
+                        <thead class="vxHead">
+                            <tr class="vxHeadRow">
+                                <ng-container *ngFor="let head of baseConfig.headers">
+                                    <th class="vxHeadRowCell" tabindex="-1" [style.width]="head.width + 'px'" *ngIf="head.hidden == false">
+                                        <span class="offscreen">{{head.columnName}}</span>
+                                    </th>
+                                </ng-container>
+                            </tr>
+                        </thead>
+                        <tbody class="vxBody" [class.revealWrap]="baseSettings.revealWrapRowData" [attr.id]="'_vxHybrid' + baseConfig.id"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="icon-container scrollAction up" role="button" tabindex="0" (click)="justScrollTop()" [class.pageEnabled]="baseSettings.vxPageEnabled"
+        aria-label="Scroll Up" [attr.id]="'scroll_up_' + baseConfig.id" style="display:none;">
+        <i class="icon icon-up"></i>
+    </div>
+    <div class="icon-container scrollAction down" role="button" tabindex="0" (click)="justScrollDown()" [class.pageEnabled]="baseSettings.vxPageEnabled"
+        aria-label="Scroll Down" [attr.id]="'scroll_down_' + baseConfig.id" style="display:none;">
+        <i class="icon icon-up down"></i>
+    </div>
+</div>

@@ -1,0 +1,144 @@
+<div class="modal-body vx-grid-related ">
+    <div class="vxTableSettings">
+        <div class="vxSettingsHead">
+            <p role="heading" aria-level="1" class="title">Manage Columns</p>
+            <div class="icon-container" role="button" tabindex="0" (click)="cancelChangeInConfig()" aria-label="Cancel Changes in Config">
+                <i class="icon icon-close" aria-hidden="true"></i>
+            </div>
+        </div>
+        <div class="vxSettingsBody">
+            <div class="col-12 zeroPadding vxH100 vxSettingsBodyContainer">
+                <div class="row align-items-start">
+                    <div class="col-3 vxH100 visHideRows">
+                        <div class="row vxH100">
+                            <div class="col-12 columns">
+                                <p role="heading" aria-level="2" class="help">Available Columns</p>
+                                <p class="helpText">To Select a column to change column Visbility, use the up and down arrows</p>
+                                <ng-container *ngFor="let header of copyForWidthVisChange">
+                                    <div class="col-12 colItem" [attr.tabindex]="header.locked == false ? 0 : -1" [class.locked]="header.locked" [class.selected]="header.id == headerSelected?.id"
+                                        (click)="selectHeader(header)" *ngIf="header.hidden == true" (keydown)="upDownKeyPressHandler($event)">
+                                        <div class="row align-items-start">
+                                            <div class="col-2 col-sm-2 col-md-1">
+                                                <p class="colLabel xl" *ngIf="header.visbilityLocked == true">
+                                                    <i class="icon icon-blockedLegacy" tooltip="Visbility Locked"></i></p>
+                                            </div>
+                                            <p class="col-10 col-sm-10 col-md-10 colName">{{header.columnName}}</p>
+                                            <span class="offscreen" *ngIf="header.locked"> Column locked for all chnages </span>
+                                            <span class="offscreen" *ngIf="header.visbilityLocked == true"> Column Visbility locked for changes </span>
+                                            <div class="clearfix"></div>
+                                        </div>
+                                    </div>
+                                </ng-container>
+                                <div class="clearfix"></div>
+                            </div>
+                            <div class="clearfix"></div>
+                        </div>
+                    </div>
+                    <div class="col-1 vxH100 visChangers">
+                        <div class="col-12 visChangersContainer">
+                            <div class="col-12 visChangersItem zeroPadding">
+                                <div class="icon-container" role="button" [attr.tabindex]="headerSelected?.visbilityLocked || headerSelected == null || headerSelected?.hidden == false ? -1 : 0"
+                                    [class.disabled]="headerSelected?.visbilityLocked || headerSelected == null || headerSelected?.hidden == false"
+                                    (click)="makeVisible(headerSelected)" (keydown)="upDownKeyPressHandler($event)" [attr.ariaLabel]="'Make Column' +  headerSelected?.columnName + 'Visible'">
+                                    <i class="icon icon-right"></i>
+                                </div>
+                                <div class="icon-container" role="button" [attr.tabindex]="headerSelected?.visbilityLocked || headerSelected == null || headerSelected?.hidden == true ? -1 : 0"
+                                    [class.disableld]="headerSelected?.visbilityLocked || headerSelected == null || headerSelected?.hidden == true"
+                                    (click)="makeHidden(headerSelected)" (keydown)="upDownKeyPressHandler($event)" [attr.ariaLabel]="'Make Column' +  headerSelected?.columnName +  'Hidden'">
+                                    <i class="icon icon-left"></i>
+                                </div>
+                            </div>
+                            <div class="clearfix"></div>
+                        </div>
+                    </div>
+                    <div class="col-7 vxH100">
+                        <div class="row orderChanger">
+                            <div class="col-12 columns">
+                                <p role="heading" aria-level="2" class="help">Selected Columns</p>
+                                <p class="helpText">To Select a column to change column order, use the up and down arrows</p>
+                                <ng-container *ngFor="let header of copyForWidthVisChange">
+                                    <div class="col-12 colItem" [class.locked]="header.locked" [class.selected]="header.id == headerSelected?.id" 
+                                    *ngIf="header.hidden == false">
+                                        <div class="row align-items-start" style="padding: 0 15px;">
+                                            <div class="col-12 col-sm-6 col-md-6 padA0L10R0" [attr.tabindex]="header.locked == true || (header.locked == false && header.visbilityLocked == true && header.orderLocked == true) ? -1 : 0"
+                                                (click)="selectHeader(header)" (keydown)="upDownKeyPressHandler($event)">
+                                                <div class="row align-items-start">
+                                                    <div class="col-12 col-sm-6 col-md-6 padA0L10R0">
+                                                        <div class="row align-items-start" style="padding: 0 15px;">
+                                                            <div class="col-4 pad0">
+                                                                <p class="colLabel xl" *ngIf="header.visbilityLocked == true" aria-hidden="true">
+                                                                    <span class="icon icon-blockedLegacy red" tooltip="Visbility Locked" aria-hidden="true"></span>
+                                                                </p>
+                                                            </div>
+                                                            <div class="col-4 pad0">
+                                                                <p class="colLabel xl" *ngIf="header.orderLocked == true" aria-hidden="true">
+                                                                    <span class="icon icon-unpin red" tooltip="Order Locked"></span>
+                                                                </p>
+                                                            </div>
+                                                            <div class="col-4 pad0">
+                                                                <p class="colLabel xl" *ngIf="header.widthLocked == true" aria-hidden="true">
+                                                                    <span class="icon icon-trim red" tooltip="Width Locked"></span>
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <p class="col-12 col-sm-12 col-md-6 colName">{{header.columnName}}</p>
+                                                    <span *ngIf="!(header.locked == true || (header.locked == false && header.visbilityLocked == true && header.orderLocked == true))">
+                                                <span class="offscreen" *ngIf="header.id == headerSelected?.id"> column selected to unselect press spacebar or enter</span>
+                                                    <span class="offscreen" *ngIf="header.id != headerSelected?.id"> column press spacebar or enter to select column for changing visibility or order</span>
+                                                    </span>
+                                                    <span class="offscreen" [hidden]="!header.locked"> Column locked for all changes</span>
+                                                    <span class="offscreen" *ngIf="header.visbilityLocked == true"> Column visibility locked for changes</span>
+                                                    <span class="offscreen" *ngIf="header.orderLocked == true"> Column Order locked for changes</span>
+                                                    <span class="offscreen" *ngIf="header.widthLocked == true"> Column Width locked for changes</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-12 col-sm-6 col-md-6">
+                                                <label class="colLabel" [attr.for]="'_mc_' + header.id">Width <span class="offscreen"> for column {{header.columnName}} in approximate characters </span> <span aria-hidden="true"> (in approx. char)</span></label>
+                                                <input class="inputStyle colInput" [(ngModel)]="header.chars" [disabled]="header.widthLocked" (change)="widthChanged(header)"
+                                                    [attr.id]="'_mc_' + header.id" />
+                                            </div>
+                                        </div>
+                                        <div class="clearfix"></div>
+                                    </div>
+                                </ng-container>
+                                <div class="clearfix"></div>
+                            </div>
+                            <div class="clearfix"></div>
+                        </div>
+                    </div>
+                    <div class="col-1 vxH100 visChangers">
+                        <div class="col-12 visChangersContainer">
+                            <div class="col-12 visChangersItem zeroPadding">
+                                <div class="icon-container" role="button" [attr.tabindex]="headerSelected?.orderLocked || headerSelected?.hidden || headerSelected == null ? -1 : 0"
+                                    [class.disabled]="headerSelected?.orderLocked || headerSelected?.hidden || headerSelected == null"
+                                    (click)="swapAbove(headerSelected)" (keydown)="upDownKeyPressHandler($event)" [attr.ariaLabel]="'Move Column' + headerSelected?.columnName + 'Up'">
+                                    <i class="icon icon-up"></i>
+                                </div>
+                                <div class="icon-container" role="button" [attr.tabindex]="headerSelected?.orderLocked || headerSelected?.hidden || headerSelected == null ? -1 : 0"
+                                    [class.disabled]="headerSelected?.orderLocked || headerSelected?.hidden || headerSelected == null"
+                                    (click)="swapBelow(headerSelected)" (keydown)="upDownKeyPressHandler($event)" [attr.ariaLabel]="'Move Column' + headerSelected?.columnName + 'Down'">
+                                    <i class="icon icon-down"></i>
+                                </div>
+                            </div>
+                            <div class="clearfix"></div>
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="vxSettingsFooter">
+            <button class="btn btn-primary vsTableButton active" (click)="saveChangeInConfig()">Save</button>
+            <button class="btn btn-primary vsTableButton" (click)="cancelChangeInConfig()">Cancel</button>
+            <div class="infoBtns" aria-hidden="true">
+                <span class="icon icon-blockedLegacy"></span>
+                <span class="infoLabel">Visbility Locked,</span>
+                <span class="icon icon-unpin"></span>
+                <span class="infoLabel">Order Locked,</span>
+                <span class="icon icon-trim"></span>
+                <span class="infoLabel">Width Locked</span>
+            </div>
+        </div>
+    </div>
+</div>
