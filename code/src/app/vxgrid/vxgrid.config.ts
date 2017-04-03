@@ -24,6 +24,8 @@ export class MultiBoxFilterItem {
     type: string;
     disabled: boolean = false
     action: string;
+    filterDefn: string;
+    filterDefnAvailable: boolean = false;
 }
 
 export class VxGridColumnConfig {
@@ -64,11 +66,14 @@ export class VxGridColumnConfig {
     order: number = 0;
     chars: number = 0;
     selected:  boolean = false;
+    customSortEnabled: boolean = false;
     constructor(args) {
         for (let i in args) {
             this[i] = args[i];
         }
     }
+    customSortFn (a, b) : number{ return 0};
+    openChangeHeader(state:boolean){}
 }
 
 export class VxGridConfig {
@@ -107,8 +112,8 @@ export class VxGridConfig {
     onSelectionReturnCol: string = '';
     emptyFill: string = '<span>No records to display ...</span>';
     caption: string = 'sample vx grid table caption';
-    loaderGifSrc: string = '/resource/loaderWhite36.GIF';
-    sortPredicateFn() { };
+    loaderGifSrc: string = '/src/loaderWhite36.GIF';
+    sortPredicateFn(a, b) : number{ return 0};
     hybridCellDefn: (any, VxGridColumnConfig) => string;
     rowClassFn: (any) => string;
 }

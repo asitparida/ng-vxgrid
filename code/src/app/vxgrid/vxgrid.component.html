@@ -62,14 +62,62 @@
                         <thead class="vxHead">
                             <tr class="vxHeadRow">
                                 <ng-container *ngFor="let head of baseConfig.headers">
-                                    <th class="vxHeadRowCell" tabindex="-1" [style.width]="head.width + 'px'" *ngIf="head.hidden == false" [attr.id]="baseConfig.id + '_vxHeadSt_' + head.id">
-                                        <span *ngIf="head.renderHeadDefn != true">{{head.columnName}}</span>
+                                    <th class="vxHeadRowCell" tabindex="-1" [style.width]="head.width + 'px'" *ngIf="head.hidden == false" [attr.title]="head.columnName"
+                                        [class.ddEnabled]="baseSettings.dropdDownEnabled[head.id] == true" [attr.id]="baseConfig.id + '_vxHeadSt_' + head.id">
                                         <div *ngIf="head.renderHeadDefn == true && head.id == 'checkbox' && baseConfig.allRowsSelectionEnabled">
                                             <div class="vx-row-select">
                                                 <input class="vx-row-select-toggle" type="checkbox" [disabled]="baseConfig.noData == true && baseConfig.allRowSelectionDisabled == true"
                                                     [(ngModel)]="baseSettings.allRowSelected" (change)="allRowSelectionChanged()"
                                                     aria-label="Select All Rows " />
                                             </div>
+                                        </div>
+                                        <span *ngIf="head.renderHeadDefn != true && baseSettings.dropdDownEnabled[head.id] == false" class="colTitle">{{head.columnName}}</span>
+                                        <div ngbDropdown *ngIf="head.renderHeadDefn != true && baseSettings.dropdDownEnabled[head.id] == true" class="dropdown" (openChange)="head.openChangeHeader($event)">
+                                            <button class="btn btn-outline-primary" [attr.id]="baseConfig.id + '_ddMenu_' + head.id" [attr.tabindex]="baseConfig.noData == false ? head.headTabIndex : -1"
+                                                [disabled]="baseConfig.data.length == 0" ngbDropdownToggle>
+                                                <span class="colTitle">{{head.columnName}}</span>
+                                            </button>
+                                            <ul class="dropdown-menu" [attr.ariaLabelledby]="baseConfig.id + '_ddMenu_' + head.id">
+                                                <li class="dropdown-item" tabindex="-1" class="loader" *ngIf="baseSettings.dropdDownLoaded[head.id] == false">
+                                                    <img class="dropDownLoader" [src]="baseConfig.loaderGifSrc" alt="dropdown addition in progress" />
+                                                </li>
+                                                <li class="dropdown-item" tabindex="0" class="sorter" *ngIf="baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownSort[head.id] == true"
+                                                    (click)="sortClick(head)" [attr.id]="baseConfig.id + '_' + head.id + '_sort'">
+                                                    <span class="sortIndicator" [hidden]="!(baseSettings.reverse == false && baseSettings.predicate == head.id)"><i class="icon icon-up white"></i></span>
+                                                    <span class="sortIndicator" [hidden]="!(baseConfig.reverseSortDirection == true && baseConfig.sortPredicate == head.id)"><i class="icon icon-down white"></i></span>Sort
+                                                    <span class="offscreen"> Press Enter or spacebar to sort on {{head.columnName}} column</span>
+                                                </li>
+                                                <li class="filterClear dropdown-item" *ngIf="baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownFilters[head.id] == true && baseSettings.colFilterPairs[head.id].length > 0"
+                                                    [class.disabled]="baseSettings.colFiltersActivated[head.id] == false && baseSettings.filterSearchToken[head.id] == ''"
+                                                    (click)="filterClearClick(head)" [attr.id]="baseConfig.id + '_' + head.id + '_clearfilters'"
+                                                    [attr.ariaHidden]="(baseSettings.colFiltersActivated[head.id] == false && baseSettings.filterSearchToken[head.id] == '') ? true : false">
+                                                    <span class="indicator"><i class="icon icon-filter white"></i></span>
+                                                    <span
+                                                        class="offscreen">press enter or spacebar to</span> Clear All Filters <span class="offscreen"> on {{head.columnName}} column</span>
+                                                </li>
+                                                <li class="filter-search dropdown-item" 
+                                                    *ngIf="baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownFilters[head.id] == true && head.ddFiltersWithSearch == true">
+                                                    <input class="search-input" 
+                                                        tabindex="0" type="search" 
+                                                        placeholder="Search In Filters" 
+                                                        [attr.ariaLabel]="'search for filters in column' + head.columnName"
+                                                        (click)="preventCollapse($event)"
+                                                        [attr.id]="head.id + '_searchfilters_' + baseConfig.id" />
+                                                    <div class="icon-container filter-activator" (click)="filterAssignVar($event, head)" [attr.id]="head.id + '_invokesearchfilters_' + baseConfig.id"
+                                                        [attr.ariaLabel]="'invoke column filter action for column ' + head.columnName">
+                                                        <i class="icon icon-search"></i>
+                                                    </div>
+                                                </li>
+                                                <ng-container *ngFor="let filter of (baseSettings.colFilterPairs[head.id] | vxFilterArrayWithToken: baseSettings.filterSearchToken[head.id])">
+                                                    <li class="filter dropdown-item" *ngIf="baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownFilters[head.id] == true">
+                                                        <input class="filter-toggle" tabindex="0" type="checkbox" [(ngModel)]="baseSettings.colFiltersStatus[filter.key]" (change)="filterClick(head, filter)"
+                                                            [attr.id]="baseConfig.id + '_' + head.id + '_filter_' + index" />
+                                                        <label
+                                                            class="filterItemTitle" [attr.for]="baseConfig.id + '_' + head.id + '_filter_' + index"><span><span class="offscreen">{{head.columnName}} filter </span>                                                            {{filter.name}}</span>
+                                                            </label>
+                                                    </li>
+                                                </ng-container>
+                                            </ul>
                                         </div>
                                     </th>
                                 </ng-container>

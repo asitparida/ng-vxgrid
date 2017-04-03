@@ -1,4 +1,13 @@
-import { Component, Input, OnInit, ElementRef, ViewEncapsulation } from "@angular/core";
+import {
+    Component,
+    Input,
+    OnInit,
+    ElementRef,
+    ViewEncapsulation,
+    Directive,
+    ViewChildren,
+    QueryList
+} from "@angular/core";
 import { NgbModal, ModalDismissReasons } from '@ng-bootstrap/ng-bootstrap';
 import { DatePipe } from '@angular/common'
 import {
@@ -15,14 +24,23 @@ import * as _ from 'underscore';
 import * as $ from "jquery";
 import * as m from 'mithril'
 
-var count = 0
+@Directive({
+    selector: '[locator]'
+})
+export class Locator {
+    @Input() gridId: string;
+    @Input() headerId: string;
+    @Input() dropdownRef: any;
+    constructor(public elementRef: ElementRef) {
+    }
+}
 
 @Component({
     selector: 'vx-grid',
     styleUrls: ['./vx.grid.min.css'],
     encapsulation: ViewEncapsulation.None,
     templateUrl: './vxgrid.component.html',
-    providers: [VxNumberFixedLenPipe, DatePipe]
+    providers: [VxNumberFixedLenPipe, DatePipe, Locator]
 })
 
 export class VxGridComponent implements OnInit, VxGridComponentInterface {
@@ -36,10 +54,13 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
     rowHeight: number = 48;
     excess: number = 3;
     lastIndexCount: number = 0;
+    lastScroll: number = 0;
     lastScrollTop: number = 0;
+    lastScrollDown: boolean = false;
     multiBoxFilters: MultiBoxFilterItem[];
     private uid: string;
 
+    @ViewChildren(Locator) locators: QueryList<Locator>;
     constructor(private el: ElementRef, private datePipe: DatePipe, private modalService: NgbModal) {
         this.baseConfig = new VxGridConfigBase();
         this.uid = _.uniqueId('_vx_');
@@ -101,7 +122,7 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
             self.baseSettings.dropdDownOpen[col.id] = false;
             if (typeof col.renderDefn !== 'undefined' && col.renderDefn != null && col.renderDefn != {} && col.renderDefn == true) {
                 col.cellDefn = col.cellDefn.replaceAll("VX_ROW_POINT", "row[baseSettings.primaryId]");
-                col.cellDefn = col.cellDefn.replaceAll("VX_DATA_POINT", "row[header.id]");
+                col.cellDefn = col.cellDefn.replaceAll("VX_DATA_POINT", "row[head.id]");
                 col.cellDefn = col.cellDefn.replaceAll("VX_ROW", "row");
                 col.cellDefn = col.cellDefn.replaceAll("VX_CONFIG", "baseConfig")
             }
@@ -112,6 +133,155 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
                 var _selectionHead = self.el.nativeElement.querySelector('#' + self.baseConfig.id + '_vxHeadSt_' + 'checkbox');
 
             }
+        }
+        _.each(self.baseConfig.headers, function (head) {
+            head.openChangeHeader = function (data) {
+                if (data == true && self.baseSettings.dropdDownEnabled[head.id] == true) {
+                    self.baseSettings.dropdDownLoaded[head.id] = false;
+                    self.baseSettings.dropdDownOpen[head.id] = !self.baseSettings.dropdDownOpen[head.id];
+                    /* CHECK IF INTERSECTED FILTERS NEED TO BE SET TRUE */
+                    var _intersect = _.filter(self.multiBoxFilters, function (mbFilter) { return mbFilter.col.localeCompare(head.id) != 0 });
+                    var processForIntersectedFilters = _intersect.length > 0;
+                    /* CHECK IF FILTERS LIST HAS BEEN POPULATED FOR COLUMN */
+                    var filterListForColAvailable = false;
+                    if (typeof self.baseSettings.colFilterPairs[head.id] !== 'undefined' && self.baseSettings.colFilterPairs[head.id] != null && self.baseSettings.colFilterPairs[head.id] != {} && self.baseSettings.colFilterPairs[head.id].length > 0) {
+                        filterListForColAvailable = true;
+                    }
+                    /* RESET DISABLED PROPS FOR PREVIOUSLY INTERSECTED DATA SET*/
+                    if (processForIntersectedFilters == false && filterListForColAvailable == true) {
+                        self.baseSettings.dropdDownLoaded[head.id] = true;
+                        _.each(self.baseSettings.colFilterPairs[head.id], function (pair: MultiBoxFilterItem) { pair.disabled = false; });
+                    }
+                    else {
+                        setTimeout(function () {
+                            head.idCollection = [];
+                            /* SORT OPERATION */
+                            if (head.ddSort == true) {
+                                self.baseSettings.dropDownSort[head.id] = true;
+                                head.idCollection.push(self.baseConfig.id + '_' + head.id + '_sort');
+                            }
+                            /* GROUP OPERATION */ /* UNSUPPORTED IN HYBRID MODE */
+                            if (head.ddGroup == true && self.baseConfig.hybrid != true) {
+                                self.baseSettings.dropDownGroup[head.id] = true;
+                                head.idCollection.push(self.baseConfig.id + '_' + head.id + '_group');
+                                head.idCollection.push(self.baseConfig.id + '_' + head.id + '_ungroup');
+                            }
+                            /* FILTER OPERATION */
+                            if (head.ddFilters == true) {
+                                head.idCollection.push(self.baseConfig.id + '_' + head.id + '_clearfilters');
+                                head.idCollection.push(head.id + '_searchfilters_' + self.baseConfig.id);
+                                head.idCollection.push(head.id + '_invokesearchfilters_' + self.baseConfig.id);
+                                /*  POPULATE LIST OF FILTERS*/
+                                if (filterListForColAvailable == false) {
+                                    self.baseSettings.dropDownFilters[head.id] = true;
+                                    self.baseSettings.colFilterPairs[head.id] = [];
+                                    var _pairs = [];
+                                    var uniqed = _.uniq(_.map(self.baseConfig.data, function (item) {
+                                        var ret = { 'value': item[head.id], 'type': '' };
+                                        if (typeof ret.value !== 'undefined' && ret.value != null && ret.value != {} && typeof ret.value != 'object' && typeof ret.value != 'number' && typeof ret.value != 'boolean') {
+                                            ret.value = ret.value.trim();
+                                        }
+                                        else if (typeof ret.value == 'boolean') {
+                                            ret.value = ret.value.toString().trim();
+                                        }
+                                        else if (Object.prototype.toString.call(ret.value) === '[object Date]') {
+                                            ret.value = ret.value.getTime();
+                                            ret.type = 'date';
+                                        }
+                                        return ret;
+                                    }), function (item) { return item.value });
+                                    uniqed = _.reject(uniqed, function (item) { return typeof item.value === 'undefined' || item.value == {} });
+                                    _.each(uniqed.sort(), function (item, iterator) {
+                                        var retKey = getKeyedUnique(item, head.id, 'col');
+                                        var key = retKey.key;
+                                        var type = retKey.type;
+                                        var name = (item.value === '' || item.value === ' ' ? '< blank >' : item.value);
+                                        name = item.value == null ? ' < null >' : name;
+                                        var pair = { 'key': key, 'label': item.value, 'name': name, 'col': head.id, 'type': type, disabled: false, action: 'filter', filterDefn: '', filterDefnAvailable: false };
+                                        if (typeof head.filterCellDefn !== 'undefined' && head.filterCellDefn != null && head.filterCellDefn != {} && head.filterCellDefn != '') {
+                                            pair.filterDefn = head.filterCellDefn.replaceAll("VX_DATA_POINT", "filter.name");
+                                            pair.filterDefnAvailable = true;
+                                        }
+                                        else {
+                                            pair.filterDefnAvailable = false;
+                                        }
+                                        _pairs.push(pair);
+                                        head.idCollection.push(self.baseConfig.id + '_' + head.id + '_filter_' + iterator);
+                                        self.baseSettings.colFiltersStatus[key] = false;
+                                    });
+                                    _pairs = _.sortBy(_pairs, 'label');
+                                    _.each(_pairs, function (_pair) {
+                                        self.baseSettings.colFilterPairs[head.id].push(_pair);
+                                    })
+                                    self.baseSettings.filterSearchToken[head.id] = '';
+                                    self.baseSettings.colFiltersActivated[head.id] = false;
+                                }
+                                else {
+                                    var _mapped: any[] = _.map(self.baseConfig.vxFilteredData, function (item: any) {
+                                        if (Object.prototype.toString.call(item[head.id]) === '[object Date]')
+                                            return item[head.id].getTime();
+                                        else if (Object.prototype.toString.call(item[head.id]) === '[object Boolean]')
+                                            return item[head.id].toString();
+                                        else
+                                            return item[head.id];
+                                    });
+                                    var uniqed1 = _.uniq(_mapped);
+                                    _.each(self.baseSettings.colFilterPairs[head.id], function (pair: any) {
+                                        if (_.contains(uniqed1, pair.label) != true)
+                                            pair.disabled = true;
+                                        else
+                                            pair.disabled = false;
+                                    });
+                                }
+                                /* SET NON INTERSECTED FILTERS TO DISABLE TRUE*/
+                                if (processForIntersectedFilters == true) {
+                                    /* GET INTERSECTED DATA SET BY LOOPING THROUGH MATCHES - baseConfig.vxFilteredData */
+                                    var lastCol = _.last(self.multiBoxFilters);
+                                    var uniqed2 = _.uniq(_.map(self.baseConfig.vxFilteredData, function (item) {
+                                        if (Object.prototype.toString.call(item[head.id]) === '[object Date]')
+                                            return item[head.id].getTime();
+                                        else if (Object.prototype.toString.call(item[head.id]) === '[object Boolean]')
+                                            return item[head.id].toString();
+                                        else
+                                            return item[head.id];
+                                    }));
+                                    if (lastCol.col.localeCompare(head.id) != 0) {
+                                        _.each(self.baseSettings.colFilterPairs[head.id], function (pair: any) {
+                                            //console.log(pair);
+                                            if (_.contains(uniqed2, pair.label) != true)
+                                                pair.disabled = true;
+                                            else
+                                                pair.disabled = false;
+                                        });
+                                    }
+                                }
+                            }
+                            self.baseSettings.dropdDownLoaded[head.id] = true;
+                        }, 500);
+                    }
+                }
+            }
+        })
+
+        function getKeyedUnique(item, id, phrase) {
+            var key = phrase + '_' + id + '_key_';
+            var type = 'string';
+            if (item.value == null) {
+                key = key + 'null';
+            }
+            else {
+                if (item.value == null)
+                    key = key + 'null';
+                else if (typeof item.value != 'object') {
+                    key = key + item.value.toString().replace(/\s+/g, '_');
+                    type = item.type;
+                }
+                else {
+                    key = key + JSON.stringify(item.value).replace(/\s+/g, '_');
+                    type = 'object';
+                }
+            }
+            return { 'key': key, 'type': type };
         }
 
         self.config.loadDataRows = function () {
@@ -165,7 +335,13 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
             //         ])
             //     }
             // } as Mithril.Component<{}>;
-            // m.mount(document.getElementById(_cellId), Mith1);                        
+            // m.mount(document.getElementById(_cellId), Mith1); 
+            console.log(self.locators);
+            _.each(self.locators['_results'], function (_locator: any) {
+                console.log(_locator['elementRef']);
+                console.log(typeof _locator['elementRef'].open);
+                _locator['elementRef'].open();
+            });
         }
         self.config.getVxCounts = function (): any {
             return {
@@ -226,6 +402,141 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
             this.baseSettingsCount[i] = 0;
         }
         m.redraw();
+    }
+
+    sortClick(header) {
+        var self = this;
+        var _colDefn = _.find(self.baseConfig.headers, function (col) { return col.id.localeCompare(header.id) == 0 });
+        if (typeof _colDefn !== 'undefined' && _colDefn != null) {
+            if (_colDefn.ddSort) {
+                if (self.baseConfig.sortPredicate.localeCompare(_colDefn.id) != 0) {
+                    self.baseConfig.sortPredicate = _colDefn.id;
+                    if (_colDefn.customSortEnabled) {
+                        self.baseConfig.sortPredicateFn = _colDefn.customSortFn;
+                    }
+                }
+                self.baseSettings.reverseSettings[_colDefn.id] = !self.baseSettings.reverseSettings[_colDefn.id];
+                self.baseConfig.reverseSortDirection = self.baseSettings.reverseSettings[_colDefn.id];
+                /// <summary>HYBRID MODE SUPPORT</summary>
+                if (self.baseConfig.hybrid == true) {
+                    //self.config.sortPredicateFn = self.baseConfig.sortPredicateFn;
+                    if (_colDefn.customSortEnabled == false)
+                        self.baseConfig.vxFilteredData = _.sortBy(self.baseConfig.data, _colDefn.id);
+                    else
+                        self.baseConfig.vxFilteredData = _.sortBy(self.baseConfig.data, self.baseConfig.sortPredicateFn);
+                    if (self.baseConfig.reverseSortDirection == true)
+                        self.baseConfig.vxFilteredData.reverse();
+                    self.resetHybridGrid();
+                }
+            }
+        }
+    }
+
+    filterClick(header, filter) {
+        var self = this;
+        if (self.baseConfig.preserveSelectionOnFilters == false)
+            self.clearSelection();
+        var filterValue = self.baseSettings.colFiltersStatus[filter.key];
+        if (filterValue == false) {
+            self.multiBoxFilters = _.reject(self.multiBoxFilters, function (mbFilter) { return mbFilter.key.localeCompare(filter.key) == 0 });
+            var colFilterActivatedAlready = _.find(self.multiBoxFilters, function (mbFilter) { return mbFilter.col.localeCompare(filter.col) == 0 });
+            if (typeof colFilterActivatedAlready === 'undefined' || colFilterActivatedAlready == null || colFilterActivatedAlready == {})
+                self.baseSettings.colFiltersActivated[header.id] = false;
+        }
+        else {
+            var filterExists = _.find(self.multiBoxFilters, function (mbFilter) { return mbFilter.key.localeCompare(filter.key) == 0 });
+            if (typeof filterExists === 'undefined' || filterExists == null || filterExists == {}) {
+                self.multiBoxFilters.push(filter);
+            }
+            self.baseSettings.colFiltersActivated[header.id] = true;
+        }
+        /// <summary>HYBRID MODE SUPPORT</summary>
+        if (self.baseConfig.hybrid == true) {
+            self.baseConfig.vxFilteredData = self.vxMultiBoxFilter(self.baseConfig.data, self.multiBoxFilters);
+            self.resetHybridGrid();
+        }
+    }
+
+    filterClearClick(header) {
+        var self = this;
+        if (self.baseSettings.colFiltersActivated[header.id] == true) {
+            self.clearSelection();
+            var colFilterActivatedAlready = _.filter(self.multiBoxFilters, function (mbFilter) { return mbFilter.col.localeCompare(header.id) == 0 });
+            if (colFilterActivatedAlready.length > 0) {
+                _.each(colFilterActivatedAlready, function (mbFilter) {
+                    self.baseSettings.colFiltersStatus[mbFilter.key] = false;
+                });
+            }
+            self.multiBoxFilters = _.reject(self.multiBoxFilters, function (mbFilter) { return mbFilter.col.localeCompare(header.id) == 0 });
+            self.baseSettings.colFiltersActivated[header.id] = false;
+            self.baseSettings.filterSearchToken[header.id] = '';
+        }
+        // if (self.baseSettings.filterSearchToken[header.id] != '') {
+        //     self.baseSettings.filterSearchToken[header.id] = '';
+        //     var _input = angular.element(document.getElementById(header.id + '_searchfilters_' + self.baseConfig.id));
+        //     if (typeof _input !== 'undefined' && _input.length > 0)
+        //         _input[0].value = '';
+        // }
+        /// <summary>HYBRID MODE SUPPORT</summary>
+        if (self.baseConfig.hybrid == true) {
+            self.baseConfig.vxFilteredData = self.vxMultiBoxFilter(self.baseConfig.data, self.multiBoxFilters);
+            self.resetHybridGrid();
+        }
+    }
+
+    filterAssignVar($event, header) {
+        var self = this;
+        $event.preventDefault();
+        $event.stopPropagation();
+        var _input: JQuery = $(document.getElementById(header.id + '_searchfilters_' + self.baseConfig.id));
+        if (typeof _input !== 'undefined' && _input.length > 0) {
+            self.baseSettings.filterSearchToken[header.id] = _input[0]['value'];
+        }
+    }
+
+    preventCollapse($event) {
+        $event.preventDefault();
+        $event.stopPropagation();
+        return false;
+    }
+
+    vxMultiBoxFilter(items, criteria) {
+        if (typeof criteria !== 'undefined' && criteria != null && criteria.length > 0) {
+            var filtered = items;
+            var copyOfItems = items;
+            var filterGroups = _.groupBy(criteria, 'col');
+            for (var columnFound in filterGroups) {
+                var matches = filterGroups[columnFound];
+                var unionedMatches = [];
+                _.each(matches, function (match: any) {
+                    unionedMatches = _.union(unionedMatches, _.filter(copyOfItems, function (item: any) {
+                        if (typeof match.label !== 'undefined' && match.label != null && match.label != {} && typeof item[match.col] !== 'undefined' && item[match.col] != null && item[match.col] != {}) {
+                            if (match.type == 'date') {
+                                return typeof item[match.col] !== 'undefined' && item[match.col] != {} && item[match.col] != null && item[match.col] != '' ? item[match.col].getTime() == match.label : false;
+                            }
+                            if (match.type == 'object')
+                                return JSON.stringify(item[match.col]).localeCompare(JSON.stringify(match.label)) == 0;
+                            else
+                                return item[match.col].toString().trim().localeCompare(match.label) == 0;
+                        }
+                        else
+                            return item[match.col] == match.label;
+                    }));
+                });
+                filtered = _.intersection(filtered, unionedMatches);
+            }
+            return filtered;
+        }
+        else
+            return items;
+    }
+
+    resetHybridGrid() {
+        var self = this;
+        self.lastIndexCount = 0;
+        self.lastScrollDown = false;
+        self.lastScrollTop = 0;
+        self.prepHybrid();
     }
 
     prepHybrid() {
@@ -582,9 +893,9 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
     openManageColumns() {
         var self = this;
         var modalRef = this.modalService.open(VxGridSettingsModal, { windowClass: 'vxGridManageColMod' });
-        var _copyConfig:VxGridColumnConfig[] = [];
+        var _copyConfig: VxGridColumnConfig[] = [];
         _.each(this.baseConfig.headers, head => {
-            var _copyHead:VxGridColumnConfig = Object.assign({}, head);
+            var _copyHead: VxGridColumnConfig = Object.assign({}, head);
             _copyConfig.push(_copyHead);
         });
         modalRef.componentInstance.copyForWidthVisChange = _copyConfig;
