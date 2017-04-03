@@ -87,7 +87,7 @@
 }
 
 .vx-grid-related .vxTable .vxBody:not(.revealWrap) .vxBodyRow td, .vx-grid-related .vxTable .vxHead .vxHeadRow th {
-    padding: 0 10px;
+    padding: 0 15px;
     height: 48px;
     white-space: nowrap;
     -ms-text-overflow: ellipsis;
@@ -741,6 +741,7 @@
     white-space: normal;
     -ms-word-break: break-all;
     word-break: break-all;
+    color:#fff;
 }
 
 .vx-grid-related .vxTable .vxHead ul.dropdown-menu li.filter input[type=checkbox] {
@@ -753,7 +754,7 @@
     font-family: inherit;
     font-weight: 400;
     font-size: medium;
-    width: calc(100% - 30px);
+    width: calc(100% - 40px);
     -ms-word-break: break-all;
     word-break: break-all;
     margin-bottom: 0;
