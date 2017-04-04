@@ -54,7 +54,8 @@
             </div>
         </div>
     </div>
-    <div class="col-12 vxTableScrollContainer" [attr.id]="'_vxOverallScroll' + baseConfig.id" [class.attrPaneOpen]="baseConfig.showGridStats || baseConfig.showGridOptions">
+    <div class="col-12 vxTableScrollContainer" [attr.id]="'_vxOverallScroll' + baseConfig.id" [class.attrPaneOpen]="baseConfig.showGridStats || baseConfig.showGridOptions"
+        [class.pageEnabled]="baseSettings.vxPageEnabled">
         <div class="col-12 vxTableContainer ms-datatable ang-dt zeroPadding scrollDupHeader scrollDupHeaderAdded" [style.minWidth]="baseSettings.netWidth + 'px'">
             <div class='row marg0' tabindex="0">
                 <div class="col-12 vxTableHolder pad0">
@@ -92,17 +93,13 @@
                                                     (click)="filterClearClick(head)" [attr.id]="baseConfig.id + '_' + head.id + '_clearfilters'"
                                                     [attr.ariaHidden]="(baseSettings.colFiltersActivated[head.id] == false && baseSettings.filterSearchToken[head.id] == '') ? true : false">
                                                     <span class="indicator"><i class="icon icon-filter white"></i></span>
-                                                    <span
-                                                        class="offscreen">press enter or spacebar to</span> Clear All Filters <span class="offscreen"> on {{head.columnName}} column</span>
+                                                    <span class="offscreen">press enter or spacebar to</span> Clear All Filters
+                                                    <span class="offscreen"> on {{head.columnName}} column</span>
                                                 </li>
-                                                <li class="filter-search dropdown-item" 
-                                                    *ngIf="baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownFilters[head.id] == true && head.ddFiltersWithSearch == true">
-                                                    <input class="search-input" 
-                                                        tabindex="0" type="search" 
-                                                        placeholder="Search In Filters" 
-                                                        [attr.ariaLabel]="'search for filters in column' + head.columnName"
-                                                        (click)="preventCollapse($event)"
-                                                        [attr.id]="head.id + '_searchfilters_' + baseConfig.id" />
+                                                <li class="filter-search dropdown-item" *ngIf="baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownFilters[head.id] == true && head.ddFiltersWithSearch == true">
+                                                    <input class="search-input" tabindex="0" type="search" placeholder="Search In Filters" [attr.ariaLabel]="'search for filters in column' + head.columnName"
+                                                        (click)="preventCollapse($event)" [attr.id]="head.id + '_searchfilters_' + baseConfig.id"
+                                                    />
                                                     <div class="icon-container filter-activator" (click)="filterAssignVar($event, head)" [attr.id]="head.id + '_invokesearchfilters_' + baseConfig.id"
                                                         [attr.ariaLabel]="'invoke column filter action for column ' + head.columnName">
                                                         <i class="icon icon-search"></i>
@@ -112,8 +109,7 @@
                                                     <li class="filter dropdown-item" *ngIf="baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownFilters[head.id] == true">
                                                         <input class="filter-toggle" tabindex="0" type="checkbox" [(ngModel)]="baseSettings.colFiltersStatus[filter.key]" (change)="filterClick(head, filter)"
                                                             [attr.id]="baseConfig.id + '_' + head.id + '_filter_' + index" />
-                                                        <label
-                                                            class="filterItemTitle" [attr.for]="baseConfig.id + '_' + head.id + '_filter_' + index"><span><span class="offscreen">{{head.columnName}} filter </span>                                                            {{filter.name}}</span>
+                                                        <label class="filterItemTitle" [attr.for]="baseConfig.id + '_' + head.id + '_filter_' + index"><span><span class="offscreen">{{head.columnName}} filter </span>                                                            {{filter.name}}</span>
                                                             </label>
                                                     </li>
                                                 </ng-container>
@@ -146,6 +142,17 @@
                     </table>
                 </div>
             </div>
+        </div>
+    </div>
+    <div class="col-xs-12 vxTablePagination pad0" *ngIf="baseSettings.vxPageEnabled">
+        <div class="icon-container dirNumContainer" (click)="baseSettings.activePage != 0 && activatePage(baseSettings.activePage - 1)" [class.disabled]="baseSettings.activePage == 0">
+            <i class="icon icon-previous" aria-hidden="true"></i><span class="offscreen">Previous Page</span>
+        </div>
+        <div class="icon-container dirNumContainer" (click)="(baseSettings.activePage != baseSettings.pages.length - 1) && activatePage(baseSettings.activePage + 1)" [class.disabled]="baseSettings.activePage == baseSettings.pages.length - 1">
+            <i class="icon icon-next" aria-hidden="true"></i><span class="offscreen">Next Page</span>
+        </div>
+        <div class="icon-container pageNumContainer" *ngFor="let pageNum of baseSettings.pages" (click)="activatePage(pageNum)" [class.active]="pageNum == baseSettings.activePage">
+            <span class="offscreen">Page </span><i class="icon">{{pageNum + 1}}</i>
         </div>
     </div>
     <div class="icon-container scrollAction up" role="button" tabindex="0" (click)="justScrollTop()" [class.pageEnabled]="baseSettings.vxPageEnabled"

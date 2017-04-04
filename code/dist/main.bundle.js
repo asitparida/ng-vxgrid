@@ -88,13 +88,15 @@ var HomeComponent = (function () {
             _samples.push(rec);
         });
         this.gridConfig.data = _samples;
+        console.log(this.gridConfig.data);
+        console.log(this.gridConfig);
         this.gridConfig.loadDataRows();
     };
     HomeComponent.prototype.log = function () {
-        console.log(this.gridConfig.getVxCounts());
-        console.log(this.gridConfig.getAppliedFilters());
-        console.log(this.gridConfig.getFilteredDataSet());
-        console.log(this.gridConfig.getSelectedRows());
+        // console.log(this.gridConfig.getVxCounts());
+        // console.log(this.gridConfig.getAppliedFilters());
+        // console.log(this.gridConfig.getFilteredDataSet());
+        // console.log(this.gridConfig.getSelectedRows());
         this.gridConfig.deselectRows(this.gridConfig.getSelectedRows());
         this.gridConfig.selectRows(['1']);
         //this.gridConfig.deselectAllRows();
@@ -103,7 +105,7 @@ var HomeComponent = (function () {
         this.gridConfig.data = [];
         this.gridConfig.hybrid = true;
         this.gridConfig.sortPredicateFnPresent = false;
-        this.gridConfig.latchExcess = 10;
+        this.gridConfig.latchExcess = 5;
         this.gridConfig.selectionEnabled = true;
         this.gridConfig.selectionAtMyRisk = true;
         this.gridConfig.multiSelectionEnabled = true;
@@ -112,6 +114,8 @@ var HomeComponent = (function () {
         this.gridConfig.enableDropdownsInHeader = true;
         this.gridConfig.showGridOptions = true;
         this.gridConfig.showGridStats = true;
+        this.gridConfig.pagination = true;
+        this.gridConfig.pageLength = 20;
         this.gridConfig.hybridCellDefn = function (row, col) {
             var tmpl = '<span>VX_DATA_POINT</span>';
             if (col.id == 'category')
@@ -256,7 +260,7 @@ var VxGridConfig = (function () {
         this.sortPredicateFnPresent = false;
         this.multiSelectionDependentCol = '';
         this.pageLength = 20;
-        this.latchExcess = 20;
+        this.latchExcess = 3;
         this.xsRowTitleTemplate = '<div class="xsRowTemplate">{{row[vxColSettings.primaryId]}}</div>';
         this.sortPredicate = '';
         this.ariaPrimary = '';
@@ -273,8 +277,19 @@ exports.VxGridConfig = VxGridConfig;
 var VxGridConfigBase = (function (_super) {
     __extends(VxGridConfigBase, _super);
     function VxGridConfigBase() {
-        _super.apply(this, arguments);
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i - 0] = arguments[_i];
+        }
+        _super.call(this);
         this.noData = false;
+        var self = this;
+        if (args.length > 0) {
+            var _arg = args[0];
+            for (var i in _arg) {
+                self[i] = _arg[i];
+            }
+        }
     }
     VxGridConfigBase.prototype.loadDataRows = function () { };
     VxGridConfigBase.prototype.getVxCounts = function () { return { vxAllDataLength: 0, vxFilteredDataLength: 0, vxSelectedDataLength: 0 }; };
@@ -329,6 +344,10 @@ var VxGridSettingsBase = (function () {
         this['enteredSearchToken'] = {}; //
         this['saveInProgress'] = {}; // STORES WHETHER A CREATE/EDIT/DELETE OPERATION IS IN PROGRESS
         this['netWidth'] = 0;
+        this['activePage'] = 0;
+        this['vxPageStartPosition'] = 0;
+        this['pages'] = [];
+        this['vxPageEnabled'] = false;
     }
     return VxGridSettingsBase;
 }());
@@ -808,7 +827,6 @@ var VxGridComponent = (function () {
             });
             return _modIds;
         };
-        this.baseConfig = new vxgrid_config_1.VxGridConfigBase();
         this.uid = _.uniqueId('_vx_');
     }
     VxGridComponent.prototype.getHybridTableBody = function () {
@@ -816,8 +834,8 @@ var VxGridComponent = (function () {
     };
     VxGridComponent.prototype.resetConfig = function () {
         var self = this;
+        self.baseConfig = new vxgrid_config_1.VxGridConfigBase(self.config);
         self.baseSettings = new vxgrid_config_1.VxGridSettingsBase();
-        self.baseConfig = self.config;
         self.baseConfig.id = self.uid;
         self.excess = self.baseConfig.latchExcess || 3;
         self.baseSettingsCount = {};
@@ -931,7 +949,7 @@ var VxGridComponent = (function () {
                                     }), function (item) { return item.value; });
                                     uniqed = _.reject(uniqed, function (item) { return typeof item.value === 'undefined' || item.value == {}; });
                                     _.each(uniqed.sort(), function (item, iterator) {
-                                        var retKey = getKeyedUnique(item, head.id, 'col');
+                                        var retKey = self.getKeyedUnique(item, head.id, 'col');
                                         var key = retKey.key;
                                         var type = retKey.type;
                                         var name = (item.value === '' || item.value === ' ' ? '< blank >' : item.value);
@@ -986,7 +1004,6 @@ var VxGridComponent = (function () {
                                     }));
                                     if (lastCol.col.localeCompare(head.id) != 0) {
                                         _.each(self.baseSettings.colFilterPairs[head.id], function (pair) {
-                                            //console.log(pair);
                                             if (_.contains(uniqed2, pair.label) != true)
                                                 pair.disabled = true;
                                             else
@@ -1001,28 +1018,29 @@ var VxGridComponent = (function () {
                 }
             };
         });
-        function getKeyedUnique(item, id, phrase) {
-            var key = phrase + '_' + id + '_key_';
-            var type = 'string';
-            if (item.value == null) {
-                key = key + 'null';
-            }
-            else {
-                if (item.value == null)
-                    key = key + 'null';
-                else if (typeof item.value != 'object') {
-                    key = key + item.value.toString().replace(/\s+/g, '_');
-                    type = item.type;
-                }
-                else {
-                    key = key + JSON.stringify(item.value).replace(/\s+/g, '_');
-                    type = 'object';
-                }
-            }
-            return { 'key': key, 'type': type };
-        }
+        self.buildOrAttachFnsToConfig();
+    };
+    VxGridComponent.prototype.buildOrAttachFnsToConfig = function () {
+        var self = this;
         self.config.loadDataRows = function () {
+            self.baseConfig.noData = false;
+            self.baseConfig.data = [];
             self.baseConfig.data = self.config.data;
+            //noData
+            if (typeof self.config.data !== 'undefined' && self.config.data.length == 0) {
+                self.baseConfig.data = [{ 'fillEmptyElement': true }];
+                self.baseConfig.noData = true;
+                if (self.config.hybrid == true && typeof self.baseConfig !== 'undefined')
+                    $(document.getElementById('_vxHybrid' + self.baseConfig.id)).empty();
+            }
+            if (typeof self.config.data !== 'undefined' && self.config.data.length > 0) {
+                if (self.baseConfig.pagination == true) {
+                    self.baseSettings.pages = _.range(Math.ceil(self.config.data.length / self.baseConfig.pageLength));
+                    self.baseSettings.vxPageEnabled = self.baseSettings.pages.length > 1;
+                    self.baseSettings.activePage = 0;
+                    self.baseSettings.vxPageStartPosition = 0;
+                }
+            }
             var _tbodyElement = self.getHybridTableBody();
             /* GETTING / SETTING PRIMARY COLUMN*/
             var _primaryColDefn = _.find(self.baseConfig.headers, function (col) { return col.primary == true; });
@@ -1058,8 +1076,9 @@ var VxGridComponent = (function () {
                 }
                 else
                     self.baseConfig.vxFilteredData = self.baseConfig.data || [];
-                self.prepHybrid();
+                self.resetHybridGrid();
             }
+            //console.log(self);
             // var _cellId = _.uniqueId('_vxCell_');
             // self.baseSettingsCount[_cellId] = 0; 
             // $(_tbodyElement).append('<tr><td (click)="hello()" id= "' + _cellId + '">{{baseConfig}}</td></tr/>');
@@ -1072,13 +1091,7 @@ var VxGridComponent = (function () {
             //         ])
             //     }
             // } as Mithril.Component<{}>;
-            // m.mount(document.getElementById(_cellId), Mith1); 
-            console.log(self.locators);
-            _.each(self.locators['_results'], function (_locator) {
-                console.log(_locator['elementRef']);
-                console.log(typeof _locator['elementRef'].open);
-                _locator['elementRef'].open();
-            });
+            // m.mount(document.getElementById(_cellId), Mith1);
         };
         self.config.getVxCounts = function () {
             return {
@@ -1131,8 +1144,20 @@ var VxGridComponent = (function () {
     VxGridComponent.prototype.ngOnInit = function () {
         this.resetConfig();
     };
+    VxGridComponent.prototype.ngAfterViewInit = function () {
+        this.config.loadDataRows();
+    };
+    VxGridComponent.prototype.activatePage = function (page) {
+        var self = this;
+        var _oldPage = self.baseSettings.activePage;
+        self.baseSettings.activePage = page;
+        self.baseSettings.vxPageStartPosition = (page > 0 ? page * self.baseConfig.pageLength : 0);
+        self.baseSettings.allRowSelected = false;
+        if (_oldPage != self.baseSettings.activePage && self.baseConfig.hybrid) {
+            self.resetHybridGrid();
+        }
+    };
     VxGridComponent.prototype.log = function () {
-        console.log(this.baseSettingsCount);
         for (var i in this.baseSettingsCount) {
             this.baseSettingsCount[i] = 0;
         }
@@ -1229,6 +1254,26 @@ var VxGridComponent = (function () {
         $event.stopPropagation();
         return false;
     };
+    VxGridComponent.prototype.getKeyedUnique = function (item, id, phrase) {
+        var key = phrase + '_' + id + '_key_';
+        var type = 'string';
+        if (item.value == null) {
+            key = key + 'null';
+        }
+        else {
+            if (item.value == null)
+                key = key + 'null';
+            else if (typeof item.value != 'object') {
+                key = key + item.value.toString().replace(/\s+/g, '_');
+                type = item.type;
+            }
+            else {
+                key = key + JSON.stringify(item.value).replace(/\s+/g, '_');
+                type = 'object';
+            }
+        }
+        return { 'key': key, 'type': type };
+    };
     VxGridComponent.prototype.vxMultiBoxFilter = function (items, criteria) {
         if (typeof criteria !== 'undefined' && criteria != null && criteria.length > 0) {
             var filtered = items;
@@ -1273,7 +1318,13 @@ var VxGridComponent = (function () {
         self.hybridContainer.empty();
         var _height = self.scrollContainer.height();
         var _initRowCount = Math.ceil(_height / self.rowHeight) + self.excess;
-        var _rows = _.first(self.baseConfig.vxFilteredData, _initRowCount);
+        var _rows = [];
+        if (self.baseConfig.pagination) {
+            _initRowCount = _initRowCount > self.baseConfig.pageLength ? self.baseConfig.pageLength : _initRowCount;
+            _rows = _.first(_.rest(self.baseConfig.vxFilteredData, self.baseSettings.vxPageStartPosition), _initRowCount);
+        }
+        else
+            _rows = _.first(self.baseConfig.vxFilteredData, _initRowCount);
         self.appendRows(_rows);
         self.lastIndexCount = self.lastIndexCount + _initRowCount;
         self.initCheckScrollUpDownArrow();
@@ -1383,7 +1434,7 @@ var VxGridComponent = (function () {
                         else
                             self.rowSelectionChanged(_rowId);
                     }
-                    console.log(self);
+                    //console.log(self);
                 });
             });
         }
@@ -1434,7 +1485,6 @@ var VxGridComponent = (function () {
                 self.baseSettings.multiSelected = _.reject(self.baseSettings.multiSelected, function (rs) { return rs.localeCompare(pid) != 0; });
             }
         }
-        console.log(self);
     };
     VxGridComponent.prototype.initCheckScrollUpDownArrow = function () {
         var self = this;
@@ -1444,10 +1494,12 @@ var VxGridComponent = (function () {
             _elem.style.display = "NONE";
         _id = 'scroll_down_' + self.baseConfig.id;
         _elem = document.getElementById(_id);
-        if (_elem && self.baseConfig.noData == true)
-            _elem.style.display = "NONE";
-        else
-            _elem.style.display = "BLOCK";
+        if (_elem) {
+            if (self.baseConfig.noData == true)
+                _elem.style.display = "NONE";
+            else
+                _elem.style.display = "BLOCK";
+        }
     };
     VxGridComponent.prototype.prepForScrollInsertion = function () {
         var self = this;
@@ -1455,9 +1507,18 @@ var VxGridComponent = (function () {
         if (self.scrollContainer.scrollTop() > self.lastScrollTop) {
             if (diff < 0)
                 diff = 0;
-            if (diff < self.rowHeight && self.lastIndexCount < self.baseConfig.vxFilteredData.length) {
+            if (diff < self.rowHeight && self.lastIndexCount < self.baseConfig.vxFilteredData.length
+                && (self.baseConfig.pagination == true && self.lastIndexCount < self.baseConfig.pageLength)) {
                 var _initRowCount = self.excess;
-                var _restRows = _.rest(self.baseConfig.vxFilteredData, self.lastIndexCount);
+                var _restRows = [];
+                if (self.baseConfig.pagination == true && self.lastIndexCount < self.baseConfig.pageLength) {
+                    if (_initRowCount + self.lastIndexCount > self.baseConfig.pageLength) {
+                        _initRowCount = self.baseConfig.pageLength - self.lastIndexCount;
+                    }
+                    _restRows = _.rest(self.baseConfig.vxFilteredData, self.baseSettings.vxPageStartPosition + self.lastIndexCount);
+                }
+                else if (!self.baseConfig.pagination)
+                    _restRows = _.rest(self.baseConfig.vxFilteredData, self.lastIndexCount);
                 var _rows = _.first(_restRows, _initRowCount);
                 self.lastIndexCount = self.lastIndexCount + _initRowCount;
                 self.appendRows(_rows);
@@ -1601,21 +1662,53 @@ var VxGridComponent = (function () {
     };
     VxGridComponent.prototype.allRowSelectionChanged = function () {
         var self = this;
-        if (self.baseSettings.allRowSelected) {
-            self.selectAllFiltered();
+        // if (self.baseSettings.allRowSelected) {
+        //     self.selectAllFiltered()
+        // }
+        // else {
+        //     self.clearSelection()
+        // }
+        var toggleTo = self.baseSettings.allRowSelected;
+        if (toggleTo == true) {
+            _.each(self.baseConfig.vxFilteredData, function (row, iter) {
+                var _proceed = true;
+                if (self.baseConfig.pagination == true && self.baseConfig.virtualization == false) {
+                    if (!(iter >= self.baseSettings.vxPageStartPosition && iter < self.baseSettings.vxPageStartPosition + self.baseConfig.pageLength)) {
+                        _proceed = false;
+                    }
+                }
+                if (row.fillEmptyElement != true && _proceed) {
+                    var pid = row[self.baseSettings.primaryId];
+                    if (self.baseSettings.rowSelected[pid] == false && toggleTo == true) {
+                        self.baseSettings.rowSelected[pid] = true;
+                        self.baseSettings.multiSelected.push(pid);
+                        if (self.baseConfig.hybrid == true) {
+                            var _element = $(document.getElementById('vx_row-sel_in_' + pid));
+                            if (typeof _element !== 'undefined' && _element != null && _element.length > 0) {
+                                $(_element).prop('checked', true);
+                            }
+                        }
+                    }
+                }
+            });
+            _.each(self.baseConfig.headers, function (header) {
+                if (self.baseSettings.dropDownGroup[header.id] == true && self.baseSettings.groupByColActivated[header.id] == true) {
+                    _.each(self.baseSettings.groupKeys[header.id], function (key) {
+                        self.baseSettings.groupPredicate[key] = true;
+                    });
+                }
+            });
+            self.baseSettings.multiSelected = _.reject(self.baseSettings.multiSelected, function (ml) { return typeof ml === 'undefined' || ml == null || ml == {}; });
         }
-        else {
+        else if (toggleTo == false) {
+            /* RESET GROUPS SELECTION */
             self.clearSelection();
         }
     };
     VxGridComponent.prototype.getAllRowLength = function () { };
     __decorate([
-        core_1.ViewChildren(Locator), 
-        __metadata('design:type', (typeof (_a = typeof core_1.QueryList !== 'undefined' && core_1.QueryList) === 'function' && _a) || Object)
-    ], VxGridComponent.prototype, "locators", void 0);
-    __decorate([
         core_1.Input(), 
-        __metadata('design:type', (typeof (_b = typeof vxgrid_config_1.VxGridConfigBase !== 'undefined' && vxgrid_config_1.VxGridConfigBase) === 'function' && _b) || Object)
+        __metadata('design:type', (typeof (_a = typeof vxgrid_config_1.VxGridConfigBase !== 'undefined' && vxgrid_config_1.VxGridConfigBase) === 'function' && _a) || Object)
     ], VxGridComponent.prototype, "config", void 0);
     VxGridComponent = __decorate([
         core_1.Component({
@@ -1623,12 +1716,12 @@ var VxGridComponent = (function () {
             styles: [__webpack_require__(745)],
             encapsulation: core_1.ViewEncapsulation.None,
             template: __webpack_require__(755),
-            providers: [vxgrid_pipes_1.VxNumberFixedLenPipe, common_1.DatePipe, Locator]
+            providers: [vxgrid_pipes_1.VxNumberFixedLenPipe, common_1.DatePipe]
         }), 
-        __metadata('design:paramtypes', [(typeof (_c = typeof core_1.ElementRef !== 'undefined' && core_1.ElementRef) === 'function' && _c) || Object, (typeof (_d = typeof common_1.DatePipe !== 'undefined' && common_1.DatePipe) === 'function' && _d) || Object, (typeof (_e = typeof ng_bootstrap_1.NgbModal !== 'undefined' && ng_bootstrap_1.NgbModal) === 'function' && _e) || Object])
+        __metadata('design:paramtypes', [(typeof (_b = typeof core_1.ElementRef !== 'undefined' && core_1.ElementRef) === 'function' && _b) || Object, (typeof (_c = typeof common_1.DatePipe !== 'undefined' && common_1.DatePipe) === 'function' && _c) || Object, (typeof (_d = typeof ng_bootstrap_1.NgbModal !== 'undefined' && ng_bootstrap_1.NgbModal) === 'function' && _d) || Object])
     ], VxGridComponent);
     return VxGridComponent;
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d;
 }());
 exports.VxGridComponent = VxGridComponent;
 //# sourceMappingURL=C:/Users/paridaa/Source/Repos/ng-vxgrid/code/src/src/src/app/vxgrid/vxgrid.component.js.map
@@ -1771,7 +1864,7 @@ module.exports = "<div class=\"col-xs-12\">\r\n    <button class=\"btn btn-prima
 /***/ 755:
 /***/ (function(module, exports) {
 
-module.exports = "<div class=\"vxH100 vx-grid-inner vx-grid-related \">\r\n    <div class=\"row\">\r\n        <div class=\"col\">\r\n            <div class=\"col vsTableStats pull-left zeroPaddingLeft\" *ngIf=\"baseConfig.showGridStats\">\r\n                <p class=\"statTitle\">All</p>\r\n                <p class=\"statValue\">{{baseConfig.vxFilteredData.length | vxNumberFixedLen:2}}</p>\r\n                <p class=\"statTitle\" [class.disabled]=\"multiBoxFilters.length == 0\">Filtered</p>\r\n                <p class=\"statValue\" [class.disabled]=\"multiBoxFilters.length == 0\">\r\n                    <span *ngIf=\"multiBoxFilters.length > 0\">\r\n                                <span>{{baseConfig.vxFilteredData.length | vxNumberFixedLen:2}}</span>\r\n                    </span>\r\n                    <span *ngIf=\"multiBoxFilters.length == 0\">00</span>\r\n                </p>\r\n                <p class=\"statTitle\" [class.disabled]=\"baseSettings.multiSelected.length == 0\">Selected</p>\r\n                <p class=\"statValue\" [class.disabled]=\"baseSettings.multiSelected.length == 0\">{{baseSettings.multiSelected.length | vxNumberFixedLen:2}}</p>\r\n            </div>\r\n            <div class=\"col vxTableOperations pull-right zeroPaddingRight\" *ngIf=\"baseConfig.showGridOptions\">\r\n                <div class=\"search-container pull-left input-group\" *ngIf=\"false\">\r\n                    <input class=\"search form-control\" type=\"search\" [disabled]=\"baseConfig.vxFilteredData.length == 0 || true\" [(ngModel)]=\"baseSettings.searchToken\"\r\n                        placeholder=\"Search\" (keyup)=\"keyUpSearch($event)\" aria-label=\"search table\" />\r\n                </div>\r\n                <div class=\"icon-container pull-left\" role=\"button\" tabindex=\"0\" *ngIf=\"baseConfig.inlineEditingEnabled == true && baseConfig.inlineAddRowEnabled == true && false\"\r\n                    (click)=\"addNewRow()\" aria-label=\"add new row\">\r\n                    <i class=\"icon icon-add\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" role=\"button\" [attr.tabindex]=\"editInProgressCount() == 0 ? -1 : 0\" *ngIf=\"baseConfig.inlineEditingEnabled == true && editInProgressCount() > 0 && false\"\r\n                    [class.disabled]=\"editInProgressCount() == 0\" (click)=\"revertEdits()\" aria-label=\"revert edits\">\r\n                    <i class=\"icon icon-revert\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" role=\"button\" tabindex=\"0\" *ngIf=\"baseSettings.multiSelected.length > 0\" (click)=\"deleteRows()\"\r\n                    aria-label=\"delete rows\">\r\n                    <i class=\"icon icon-trash\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" role=\"button\" [attr.tabindex]=\"baseSettings.selectAllEnabled == false && baseConfig.multiSelectionEnabled == true ? -1 : 0\"\r\n                    [class.disabled]=\"(baseSettings.selectAllEnabled == false && baseConfig.multiSelectionEnabled == true) || baseConfig.vxFilteredData.length == 0\"\r\n                    (click)=\"selectAllFiltered()\" aria-label=\"select all filtered rows\">\r\n                    <i class=\"icon icon-openwith\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" role=\"button\" [attr.tabindex]=\"baseSettings.multiSelected.length == 0 ? -1 : 0\" [class.disabled]=\"baseSettings.multiSelected.length == 0\"\r\n                    (click)=\"clearSelection()\" aria-label=\"clear any row selections\">\r\n                    <i class=\"icon icon-clearselection\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" [class.active]=\"baseSettings.revealWrapRowData\" (click)=\"revealWrapToggle()\" [class.disabled]=\"baseConfig.vxFilteredData.length == 0\"\r\n                    aria-label=\"toggle row content reveal\">\r\n                    <i class=\"icon icon-more\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" role=\"button\" [attr.tabindex]=\"multiBoxFilters.length == 0 ? -1 : 0\" [class.disabled]=\"multiBoxFilters.length == 0\"\r\n                    (click)=\"clearFilters()\" aria-label=\"clear any filters applied\">\r\n                    <i class=\"icon icon-refresh\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" [class.active]=\"baseSettings.menu\" (click)=\"openManageColumns()\" aria-label=\"open manage columns modal\">\r\n                    <i class=\"icon icon-repair\"></i>\r\n                </div>\r\n            </div>\r\n        </div>\r\n    </div>\r\n    <div class=\"col-12 vxTableScrollContainer\" [attr.id]=\"'_vxOverallScroll' + baseConfig.id\" [class.attrPaneOpen]=\"baseConfig.showGridStats || baseConfig.showGridOptions\">\r\n        <div class=\"col-12 vxTableContainer ms-datatable ang-dt zeroPadding scrollDupHeader scrollDupHeaderAdded\" [style.minWidth]=\"baseSettings.netWidth + 'px'\">\r\n            <div class='row marg0' tabindex=\"0\">\r\n                <div class=\"col-12 vxTableHolder pad0\">\r\n                    <table class=\"vxTable\" role=\"presentation\">\r\n                        <thead class=\"vxHead\">\r\n                            <tr class=\"vxHeadRow\">\r\n                                <ng-container *ngFor=\"let head of baseConfig.headers\">\r\n                                    <th class=\"vxHeadRowCell\" tabindex=\"-1\" [style.width]=\"head.width + 'px'\" *ngIf=\"head.hidden == false\" [attr.title]=\"head.columnName\"\r\n                                        [class.ddEnabled]=\"baseSettings.dropdDownEnabled[head.id] == true\" [attr.id]=\"baseConfig.id + '_vxHeadSt_' + head.id\">\r\n                                        <div *ngIf=\"head.renderHeadDefn == true && head.id == 'checkbox' && baseConfig.allRowsSelectionEnabled\">\r\n                                            <div class=\"vx-row-select\">\r\n                                                <input class=\"vx-row-select-toggle\" type=\"checkbox\" [disabled]=\"baseConfig.noData == true && baseConfig.allRowSelectionDisabled == true\"\r\n                                                    [(ngModel)]=\"baseSettings.allRowSelected\" (change)=\"allRowSelectionChanged()\"\r\n                                                    aria-label=\"Select All Rows \" />\r\n                                            </div>\r\n                                        </div>\r\n                                        <span *ngIf=\"head.renderHeadDefn != true && baseSettings.dropdDownEnabled[head.id] == false\" class=\"colTitle\">{{head.columnName}}</span>\r\n                                        <div ngbDropdown *ngIf=\"head.renderHeadDefn != true && baseSettings.dropdDownEnabled[head.id] == true\" class=\"dropdown\" (openChange)=\"head.openChangeHeader($event)\">\r\n                                            <button class=\"btn btn-outline-primary\" [attr.id]=\"baseConfig.id + '_ddMenu_' + head.id\" [attr.tabindex]=\"baseConfig.noData == false ? head.headTabIndex : -1\"\r\n                                                [disabled]=\"baseConfig.data.length == 0\" ngbDropdownToggle>\r\n                                                <span class=\"colTitle\">{{head.columnName}}</span>\r\n                                            </button>\r\n                                            <ul class=\"dropdown-menu\" [attr.ariaLabelledby]=\"baseConfig.id + '_ddMenu_' + head.id\">\r\n                                                <li class=\"dropdown-item\" tabindex=\"-1\" class=\"loader\" *ngIf=\"baseSettings.dropdDownLoaded[head.id] == false\">\r\n                                                    <img class=\"dropDownLoader\" [src]=\"baseConfig.loaderGifSrc\" alt=\"dropdown addition in progress\" />\r\n                                                </li>\r\n                                                <li class=\"dropdown-item\" tabindex=\"0\" class=\"sorter\" *ngIf=\"baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownSort[head.id] == true\"\r\n                                                    (click)=\"sortClick(head)\" [attr.id]=\"baseConfig.id + '_' + head.id + '_sort'\">\r\n                                                    <span class=\"sortIndicator\" [hidden]=\"!(baseSettings.reverse == false && baseSettings.predicate == head.id)\"><i class=\"icon icon-up white\"></i></span>\r\n                                                    <span class=\"sortIndicator\" [hidden]=\"!(baseConfig.reverseSortDirection == true && baseConfig.sortPredicate == head.id)\"><i class=\"icon icon-down white\"></i></span>Sort\r\n                                                    <span class=\"offscreen\"> Press Enter or spacebar to sort on {{head.columnName}} column</span>\r\n                                                </li>\r\n                                                <li class=\"filterClear dropdown-item\" *ngIf=\"baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownFilters[head.id] == true && baseSettings.colFilterPairs[head.id].length > 0\"\r\n                                                    [class.disabled]=\"baseSettings.colFiltersActivated[head.id] == false && baseSettings.filterSearchToken[head.id] == ''\"\r\n                                                    (click)=\"filterClearClick(head)\" [attr.id]=\"baseConfig.id + '_' + head.id + '_clearfilters'\"\r\n                                                    [attr.ariaHidden]=\"(baseSettings.colFiltersActivated[head.id] == false && baseSettings.filterSearchToken[head.id] == '') ? true : false\">\r\n                                                    <span class=\"indicator\"><i class=\"icon icon-filter white\"></i></span>\r\n                                                    <span\r\n                                                        class=\"offscreen\">press enter or spacebar to</span> Clear All Filters <span class=\"offscreen\"> on {{head.columnName}} column</span>\r\n                                                </li>\r\n                                                <li class=\"filter-search dropdown-item\" \r\n                                                    *ngIf=\"baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownFilters[head.id] == true && head.ddFiltersWithSearch == true\">\r\n                                                    <input class=\"search-input\" \r\n                                                        tabindex=\"0\" type=\"search\" \r\n                                                        placeholder=\"Search In Filters\" \r\n                                                        [attr.ariaLabel]=\"'search for filters in column' + head.columnName\"\r\n                                                        (click)=\"preventCollapse($event)\"\r\n                                                        [attr.id]=\"head.id + '_searchfilters_' + baseConfig.id\" />\r\n                                                    <div class=\"icon-container filter-activator\" (click)=\"filterAssignVar($event, head)\" [attr.id]=\"head.id + '_invokesearchfilters_' + baseConfig.id\"\r\n                                                        [attr.ariaLabel]=\"'invoke column filter action for column ' + head.columnName\">\r\n                                                        <i class=\"icon icon-search\"></i>\r\n                                                    </div>\r\n                                                </li>\r\n                                                <ng-container *ngFor=\"let filter of (baseSettings.colFilterPairs[head.id] | vxFilterArrayWithToken: baseSettings.filterSearchToken[head.id])\">\r\n                                                    <li class=\"filter dropdown-item\" *ngIf=\"baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownFilters[head.id] == true\">\r\n                                                        <input class=\"filter-toggle\" tabindex=\"0\" type=\"checkbox\" [(ngModel)]=\"baseSettings.colFiltersStatus[filter.key]\" (change)=\"filterClick(head, filter)\"\r\n                                                            [attr.id]=\"baseConfig.id + '_' + head.id + '_filter_' + index\" />\r\n                                                        <label\r\n                                                            class=\"filterItemTitle\" [attr.for]=\"baseConfig.id + '_' + head.id + '_filter_' + index\"><span><span class=\"offscreen\">{{head.columnName}} filter </span>                                                            {{filter.name}}</span>\r\n                                                            </label>\r\n                                                    </li>\r\n                                                </ng-container>\r\n                                            </ul>\r\n                                        </div>\r\n                                    </th>\r\n                                </ng-container>\r\n                            </tr>\r\n                        </thead>\r\n                    </table>\r\n                </div>\r\n            </div>\r\n        </div>\r\n        <div class=\"col-12 vxTableContainer ms-datatable ang-dt zeroPadding scrollTableContainer\" [style.minWidth]=\"baseSettings.netWidth + 'px'\"\r\n            [attr.id]=\"'_vxScrollContainer' + baseConfig.id\" style=\"margin-top: 0;\">\r\n            <div class='row marg0'>\r\n                <div class=\"col-12 vxTableHolder pad0\">\r\n                    <table class=\"vxTable\">\r\n                        <caption class=\"offscreen\"></caption>\r\n                        <thead class=\"vxHead\">\r\n                            <tr class=\"vxHeadRow\">\r\n                                <ng-container *ngFor=\"let head of baseConfig.headers\">\r\n                                    <th class=\"vxHeadRowCell\" tabindex=\"-1\" [style.width]=\"head.width + 'px'\" *ngIf=\"head.hidden == false\">\r\n                                        <span class=\"offscreen\">{{head.columnName}}</span>\r\n                                    </th>\r\n                                </ng-container>\r\n                            </tr>\r\n                        </thead>\r\n                        <tbody class=\"vxBody\" [class.revealWrap]=\"baseSettings.revealWrapRowData\" [attr.id]=\"'_vxHybrid' + baseConfig.id\"></tbody>\r\n                    </table>\r\n                </div>\r\n            </div>\r\n        </div>\r\n    </div>\r\n    <div class=\"icon-container scrollAction up\" role=\"button\" tabindex=\"0\" (click)=\"justScrollTop()\" [class.pageEnabled]=\"baseSettings.vxPageEnabled\"\r\n        aria-label=\"Scroll Up\" [attr.id]=\"'scroll_up_' + baseConfig.id\" style=\"display:none;\">\r\n        <i class=\"icon icon-up\"></i>\r\n    </div>\r\n    <div class=\"icon-container scrollAction down\" role=\"button\" tabindex=\"0\" (click)=\"justScrollDown()\" [class.pageEnabled]=\"baseSettings.vxPageEnabled\"\r\n        aria-label=\"Scroll Down\" [attr.id]=\"'scroll_down_' + baseConfig.id\" style=\"display:none;\">\r\n        <i class=\"icon icon-up down\"></i>\r\n    </div>\r\n</div>"
+module.exports = "<div class=\"vxH100 vx-grid-inner vx-grid-related \">\r\n    <div class=\"row\">\r\n        <div class=\"col\">\r\n            <div class=\"col vsTableStats pull-left zeroPaddingLeft\" *ngIf=\"baseConfig.showGridStats\">\r\n                <p class=\"statTitle\">All</p>\r\n                <p class=\"statValue\">{{baseConfig.vxFilteredData.length | vxNumberFixedLen:2}}</p>\r\n                <p class=\"statTitle\" [class.disabled]=\"multiBoxFilters.length == 0\">Filtered</p>\r\n                <p class=\"statValue\" [class.disabled]=\"multiBoxFilters.length == 0\">\r\n                    <span *ngIf=\"multiBoxFilters.length > 0\">\r\n                                <span>{{baseConfig.vxFilteredData.length | vxNumberFixedLen:2}}</span>\r\n                    </span>\r\n                    <span *ngIf=\"multiBoxFilters.length == 0\">00</span>\r\n                </p>\r\n                <p class=\"statTitle\" [class.disabled]=\"baseSettings.multiSelected.length == 0\">Selected</p>\r\n                <p class=\"statValue\" [class.disabled]=\"baseSettings.multiSelected.length == 0\">{{baseSettings.multiSelected.length | vxNumberFixedLen:2}}</p>\r\n            </div>\r\n            <div class=\"col vxTableOperations pull-right zeroPaddingRight\" *ngIf=\"baseConfig.showGridOptions\">\r\n                <div class=\"search-container pull-left input-group\" *ngIf=\"false\">\r\n                    <input class=\"search form-control\" type=\"search\" [disabled]=\"baseConfig.vxFilteredData.length == 0 || true\" [(ngModel)]=\"baseSettings.searchToken\"\r\n                        placeholder=\"Search\" (keyup)=\"keyUpSearch($event)\" aria-label=\"search table\" />\r\n                </div>\r\n                <div class=\"icon-container pull-left\" role=\"button\" tabindex=\"0\" *ngIf=\"baseConfig.inlineEditingEnabled == true && baseConfig.inlineAddRowEnabled == true && false\"\r\n                    (click)=\"addNewRow()\" aria-label=\"add new row\">\r\n                    <i class=\"icon icon-add\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" role=\"button\" [attr.tabindex]=\"editInProgressCount() == 0 ? -1 : 0\" *ngIf=\"baseConfig.inlineEditingEnabled == true && editInProgressCount() > 0 && false\"\r\n                    [class.disabled]=\"editInProgressCount() == 0\" (click)=\"revertEdits()\" aria-label=\"revert edits\">\r\n                    <i class=\"icon icon-revert\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" role=\"button\" tabindex=\"0\" *ngIf=\"baseSettings.multiSelected.length > 0\" (click)=\"deleteRows()\"\r\n                    aria-label=\"delete rows\">\r\n                    <i class=\"icon icon-trash\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" role=\"button\" [attr.tabindex]=\"baseSettings.selectAllEnabled == false && baseConfig.multiSelectionEnabled == true ? -1 : 0\"\r\n                    [class.disabled]=\"(baseSettings.selectAllEnabled == false && baseConfig.multiSelectionEnabled == true) || baseConfig.vxFilteredData.length == 0\"\r\n                    (click)=\"selectAllFiltered()\" aria-label=\"select all filtered rows\">\r\n                    <i class=\"icon icon-openwith\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" role=\"button\" [attr.tabindex]=\"baseSettings.multiSelected.length == 0 ? -1 : 0\" [class.disabled]=\"baseSettings.multiSelected.length == 0\"\r\n                    (click)=\"clearSelection()\" aria-label=\"clear any row selections\">\r\n                    <i class=\"icon icon-clearselection\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" [class.active]=\"baseSettings.revealWrapRowData\" (click)=\"revealWrapToggle()\" [class.disabled]=\"baseConfig.vxFilteredData.length == 0\"\r\n                    aria-label=\"toggle row content reveal\">\r\n                    <i class=\"icon icon-more\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" role=\"button\" [attr.tabindex]=\"multiBoxFilters.length == 0 ? -1 : 0\" [class.disabled]=\"multiBoxFilters.length == 0\"\r\n                    (click)=\"clearFilters()\" aria-label=\"clear any filters applied\">\r\n                    <i class=\"icon icon-refresh\"></i>\r\n                </div>\r\n                <div class=\"icon-container pull-left\" [class.active]=\"baseSettings.menu\" (click)=\"openManageColumns()\" aria-label=\"open manage columns modal\">\r\n                    <i class=\"icon icon-repair\"></i>\r\n                </div>\r\n            </div>\r\n        </div>\r\n    </div>\r\n    <div class=\"col-12 vxTableScrollContainer\" [attr.id]=\"'_vxOverallScroll' + baseConfig.id\" [class.attrPaneOpen]=\"baseConfig.showGridStats || baseConfig.showGridOptions\"\r\n        [class.pageEnabled]=\"baseSettings.vxPageEnabled\">\r\n        <div class=\"col-12 vxTableContainer ms-datatable ang-dt zeroPadding scrollDupHeader scrollDupHeaderAdded\" [style.minWidth]=\"baseSettings.netWidth + 'px'\">\r\n            <div class='row marg0' tabindex=\"0\">\r\n                <div class=\"col-12 vxTableHolder pad0\">\r\n                    <table class=\"vxTable\" role=\"presentation\">\r\n                        <thead class=\"vxHead\">\r\n                            <tr class=\"vxHeadRow\">\r\n                                <ng-container *ngFor=\"let head of baseConfig.headers\">\r\n                                    <th class=\"vxHeadRowCell\" tabindex=\"-1\" [style.width]=\"head.width + 'px'\" *ngIf=\"head.hidden == false\" [attr.title]=\"head.columnName\"\r\n                                        [class.ddEnabled]=\"baseSettings.dropdDownEnabled[head.id] == true\" [attr.id]=\"baseConfig.id + '_vxHeadSt_' + head.id\">\r\n                                        <div *ngIf=\"head.renderHeadDefn == true && head.id == 'checkbox' && baseConfig.allRowsSelectionEnabled\">\r\n                                            <div class=\"vx-row-select\">\r\n                                                <input class=\"vx-row-select-toggle\" type=\"checkbox\" [disabled]=\"baseConfig.noData == true && baseConfig.allRowSelectionDisabled == true\"\r\n                                                    [(ngModel)]=\"baseSettings.allRowSelected\" (change)=\"allRowSelectionChanged()\"\r\n                                                    aria-label=\"Select All Rows \" />\r\n                                            </div>\r\n                                        </div>\r\n                                        <span *ngIf=\"head.renderHeadDefn != true && baseSettings.dropdDownEnabled[head.id] == false\" class=\"colTitle\">{{head.columnName}}</span>\r\n                                        <div ngbDropdown *ngIf=\"head.renderHeadDefn != true && baseSettings.dropdDownEnabled[head.id] == true\" class=\"dropdown\" (openChange)=\"head.openChangeHeader($event)\">\r\n                                            <button class=\"btn btn-outline-primary\" [attr.id]=\"baseConfig.id + '_ddMenu_' + head.id\" [attr.tabindex]=\"baseConfig.noData == false ? head.headTabIndex : -1\"\r\n                                                [disabled]=\"baseConfig.data.length == 0\" ngbDropdownToggle>\r\n                                                <span class=\"colTitle\">{{head.columnName}}</span>\r\n                                            </button>\r\n                                            <ul class=\"dropdown-menu\" [attr.ariaLabelledby]=\"baseConfig.id + '_ddMenu_' + head.id\">\r\n                                                <li class=\"dropdown-item\" tabindex=\"-1\" class=\"loader\" *ngIf=\"baseSettings.dropdDownLoaded[head.id] == false\">\r\n                                                    <img class=\"dropDownLoader\" [src]=\"baseConfig.loaderGifSrc\" alt=\"dropdown addition in progress\" />\r\n                                                </li>\r\n                                                <li class=\"dropdown-item\" tabindex=\"0\" class=\"sorter\" *ngIf=\"baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownSort[head.id] == true\"\r\n                                                    (click)=\"sortClick(head)\" [attr.id]=\"baseConfig.id + '_' + head.id + '_sort'\">\r\n                                                    <span class=\"sortIndicator\" [hidden]=\"!(baseSettings.reverse == false && baseSettings.predicate == head.id)\"><i class=\"icon icon-up white\"></i></span>\r\n                                                    <span class=\"sortIndicator\" [hidden]=\"!(baseConfig.reverseSortDirection == true && baseConfig.sortPredicate == head.id)\"><i class=\"icon icon-down white\"></i></span>Sort\r\n                                                    <span class=\"offscreen\"> Press Enter or spacebar to sort on {{head.columnName}} column</span>\r\n                                                </li>\r\n                                                <li class=\"filterClear dropdown-item\" *ngIf=\"baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownFilters[head.id] == true && baseSettings.colFilterPairs[head.id].length > 0\"\r\n                                                    [class.disabled]=\"baseSettings.colFiltersActivated[head.id] == false && baseSettings.filterSearchToken[head.id] == ''\"\r\n                                                    (click)=\"filterClearClick(head)\" [attr.id]=\"baseConfig.id + '_' + head.id + '_clearfilters'\"\r\n                                                    [attr.ariaHidden]=\"(baseSettings.colFiltersActivated[head.id] == false && baseSettings.filterSearchToken[head.id] == '') ? true : false\">\r\n                                                    <span class=\"indicator\"><i class=\"icon icon-filter white\"></i></span>\r\n                                                    <span class=\"offscreen\">press enter or spacebar to</span> Clear All Filters\r\n                                                    <span class=\"offscreen\"> on {{head.columnName}} column</span>\r\n                                                </li>\r\n                                                <li class=\"filter-search dropdown-item\" *ngIf=\"baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownFilters[head.id] == true && head.ddFiltersWithSearch == true\">\r\n                                                    <input class=\"search-input\" tabindex=\"0\" type=\"search\" placeholder=\"Search In Filters\" [attr.ariaLabel]=\"'search for filters in column' + head.columnName\"\r\n                                                        (click)=\"preventCollapse($event)\" [attr.id]=\"head.id + '_searchfilters_' + baseConfig.id\"\r\n                                                    />\r\n                                                    <div class=\"icon-container filter-activator\" (click)=\"filterAssignVar($event, head)\" [attr.id]=\"head.id + '_invokesearchfilters_' + baseConfig.id\"\r\n                                                        [attr.ariaLabel]=\"'invoke column filter action for column ' + head.columnName\">\r\n                                                        <i class=\"icon icon-search\"></i>\r\n                                                    </div>\r\n                                                </li>\r\n                                                <ng-container *ngFor=\"let filter of (baseSettings.colFilterPairs[head.id] | vxFilterArrayWithToken: baseSettings.filterSearchToken[head.id])\">\r\n                                                    <li class=\"filter dropdown-item\" *ngIf=\"baseSettings.dropdDownLoaded[head.id] == true && baseSettings.dropDownFilters[head.id] == true\">\r\n                                                        <input class=\"filter-toggle\" tabindex=\"0\" type=\"checkbox\" [(ngModel)]=\"baseSettings.colFiltersStatus[filter.key]\" (change)=\"filterClick(head, filter)\"\r\n                                                            [attr.id]=\"baseConfig.id + '_' + head.id + '_filter_' + index\" />\r\n                                                        <label class=\"filterItemTitle\" [attr.for]=\"baseConfig.id + '_' + head.id + '_filter_' + index\"><span><span class=\"offscreen\">{{head.columnName}} filter </span>                                                            {{filter.name}}</span>\r\n                                                            </label>\r\n                                                    </li>\r\n                                                </ng-container>\r\n                                            </ul>\r\n                                        </div>\r\n                                    </th>\r\n                                </ng-container>\r\n                            </tr>\r\n                        </thead>\r\n                    </table>\r\n                </div>\r\n            </div>\r\n        </div>\r\n        <div class=\"col-12 vxTableContainer ms-datatable ang-dt zeroPadding scrollTableContainer\" [style.minWidth]=\"baseSettings.netWidth + 'px'\"\r\n            [attr.id]=\"'_vxScrollContainer' + baseConfig.id\" style=\"margin-top: 0;\">\r\n            <div class='row marg0'>\r\n                <div class=\"col-12 vxTableHolder pad0\">\r\n                    <table class=\"vxTable\">\r\n                        <caption class=\"offscreen\"></caption>\r\n                        <thead class=\"vxHead\">\r\n                            <tr class=\"vxHeadRow\">\r\n                                <ng-container *ngFor=\"let head of baseConfig.headers\">\r\n                                    <th class=\"vxHeadRowCell\" tabindex=\"-1\" [style.width]=\"head.width + 'px'\" *ngIf=\"head.hidden == false\">\r\n                                        <span class=\"offscreen\">{{head.columnName}}</span>\r\n                                    </th>\r\n                                </ng-container>\r\n                            </tr>\r\n                        </thead>\r\n                        <tbody class=\"vxBody\" [class.revealWrap]=\"baseSettings.revealWrapRowData\" [attr.id]=\"'_vxHybrid' + baseConfig.id\"></tbody>\r\n                    </table>\r\n                </div>\r\n            </div>\r\n        </div>\r\n    </div>\r\n    <div class=\"col-xs-12 vxTablePagination pad0\" *ngIf=\"baseSettings.vxPageEnabled\">\r\n        <div class=\"icon-container dirNumContainer\" (click)=\"baseSettings.activePage != 0 && activatePage(baseSettings.activePage - 1)\" [class.disabled]=\"baseSettings.activePage == 0\">\r\n            <i class=\"icon icon-previous\" aria-hidden=\"true\"></i><span class=\"offscreen\">Previous Page</span>\r\n        </div>\r\n        <div class=\"icon-container dirNumContainer\" (click)=\"(baseSettings.activePage != baseSettings.pages.length - 1) && activatePage(baseSettings.activePage + 1)\" [class.disabled]=\"baseSettings.activePage == baseSettings.pages.length - 1\">\r\n            <i class=\"icon icon-next\" aria-hidden=\"true\"></i><span class=\"offscreen\">Next Page</span>\r\n        </div>\r\n        <div class=\"icon-container pageNumContainer\" *ngFor=\"let pageNum of baseSettings.pages\" (click)=\"activatePage(pageNum)\" [class.active]=\"pageNum == baseSettings.activePage\">\r\n            <span class=\"offscreen\">Page </span><i class=\"icon\">{{pageNum + 1}}</i>\r\n        </div>\r\n    </div>\r\n    <div class=\"icon-container scrollAction up\" role=\"button\" tabindex=\"0\" (click)=\"justScrollTop()\" [class.pageEnabled]=\"baseSettings.vxPageEnabled\"\r\n        aria-label=\"Scroll Up\" [attr.id]=\"'scroll_up_' + baseConfig.id\" style=\"display:none;\">\r\n        <i class=\"icon icon-up\"></i>\r\n    </div>\r\n    <div class=\"icon-container scrollAction down\" role=\"button\" tabindex=\"0\" (click)=\"justScrollDown()\" [class.pageEnabled]=\"baseSettings.vxPageEnabled\"\r\n        aria-label=\"Scroll Down\" [attr.id]=\"'scroll_down_' + baseConfig.id\" style=\"display:none;\">\r\n        <i class=\"icon icon-up down\"></i>\r\n    </div>\r\n</div>"
 
 /***/ }),
 

@@ -44,13 +44,15 @@ export class HomeComponent {
             _samples.push(rec);
         });
         this.gridConfig.data = _samples;
+        console.log(this.gridConfig.data);
+        console.log(this.gridConfig);
         this.gridConfig.loadDataRows();
     }
     log(){
-        console.log(this.gridConfig.getVxCounts());
-        console.log(this.gridConfig.getAppliedFilters());
-        console.log(this.gridConfig.getFilteredDataSet());
-        console.log(this.gridConfig.getSelectedRows());
+        // console.log(this.gridConfig.getVxCounts());
+        // console.log(this.gridConfig.getAppliedFilters());
+        // console.log(this.gridConfig.getFilteredDataSet());
+        // console.log(this.gridConfig.getSelectedRows());
         this.gridConfig.deselectRows(this.gridConfig.getSelectedRows());
         this.gridConfig.selectRows(['1']);
         //this.gridConfig.deselectAllRows();
@@ -59,7 +61,7 @@ export class HomeComponent {
         this.gridConfig.data = [];
         this.gridConfig.hybrid = true;
         this.gridConfig.sortPredicateFnPresent = false;
-        this.gridConfig.latchExcess = 10;
+        this.gridConfig.latchExcess = 5;
         this.gridConfig.selectionEnabled = true;
         this.gridConfig.selectionAtMyRisk = true;
         this.gridConfig.multiSelectionEnabled = true;
@@ -68,6 +70,8 @@ export class HomeComponent {
         this.gridConfig.enableDropdownsInHeader = true;
         this.gridConfig.showGridOptions = true; 
         this.gridConfig.showGridStats = true;
+        this.gridConfig.pagination = true;
+        this.gridConfig.pageLength = 20;
         this.gridConfig.hybridCellDefn = function (row, col) {
             var tmpl = '<span>VX_DATA_POINT</span>';
             if (col.id == 'category')

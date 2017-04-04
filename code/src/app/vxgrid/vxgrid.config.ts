@@ -65,15 +65,15 @@ export class VxGridColumnConfig {
     columnClassFn: (any) => string;
     order: number = 0;
     chars: number = 0;
-    selected:  boolean = false;
+    selected: boolean = false;
     customSortEnabled: boolean = false;
     constructor(args) {
         for (let i in args) {
             this[i] = args[i];
         }
     }
-    customSortFn (a, b) : number{ return 0};
-    openChangeHeader(state:boolean){}
+    customSortFn(a, b): number { return 0 };
+    openChangeHeader(state: boolean) { }
 }
 
 export class VxGridConfig {
@@ -105,7 +105,7 @@ export class VxGridConfig {
     sortPredicateFnPresent: boolean = false;
     multiSelectionDependentCol: string = '';
     pageLength: number = 20;
-    latchExcess: number = 20;
+    latchExcess: number = 3;
     xsRowTitleTemplate: string = '<div class="xsRowTemplate">{{row[vxColSettings.primaryId]}}</div>';
     sortPredicate: string = '';
     ariaPrimary: string = '';
@@ -113,7 +113,7 @@ export class VxGridConfig {
     emptyFill: string = '<span>No records to display ...</span>';
     caption: string = 'sample vx grid table caption';
     loaderGifSrc: string = '/src/loaderWhite36.GIF';
-    sortPredicateFn(a, b) : number{ return 0};
+    sortPredicateFn(a, b): number { return 0 };
     hybridCellDefn: (any, VxGridColumnConfig) => string;
     rowClassFn: (any) => string;
 }
@@ -123,14 +123,14 @@ export interface VxGridConfigCallbacks {
     getVxCounts?(): { vxAllDataLength: number, vxFilteredDataLength: number, vxSelectedDataLength: number };
     getAppliedFilters(): { column: string, label: string, key: string }[];
     getFilteredDataSet(): any[];
-    getSelectedRows() : string[];
-    selectRows(ids:any[]) : void;
-    deselectRows(ids:any[]) : void;
-    sortByColumn(ids:any, direction: boolean): void;
-    resetColumnFilters(ids:any[]) :void;
-    removeRows(rowIds: any[]) : void;
-    deselectAllRows() : void;
-    selectAllFiltered() : void;
+    getSelectedRows(): string[];
+    selectRows(ids: any[]): void;
+    deselectRows(ids: any[]): void;
+    sortByColumn(ids: any, direction: boolean): void;
+    resetColumnFilters(ids: any[]): void;
+    removeRows(rowIds: any[]): void;
+    deselectAllRows(): void;
+    selectAllFiltered(): void;
 }
 
 export class VxGridConfigBase extends VxGridConfig implements VxGridConfigCallbacks {
@@ -140,14 +140,25 @@ export class VxGridConfigBase extends VxGridConfig implements VxGridConfigCallba
     getVxCounts() { return { vxAllDataLength: 0, vxFilteredDataLength: 0, vxSelectedDataLength: 0 } }
     getAppliedFilters() { return [] }
     getFilteredDataSet() { return [] }
-    getSelectedRows(){ return []}
-    selectRows(ids:any[]){}
-    deselectRows(ids:any[]){}
-    sortByColumn(ids:any, direction: boolean): void {} // NG2-TO-BE-IMPLEMENTED
-    resetColumnFilters(ids:any[]) :void {} // NG2-TO-BE-IMPLEMENTED
-    removeRows(rowIds: any[]) : void {}
-    deselectAllRows() : void {};
-    selectAllFiltered() : void {}
+    getSelectedRows() { return [] }
+    selectRows(ids: any[]) { }
+    deselectRows(ids: any[]) { }
+    sortByColumn(ids: any, direction: boolean): void { } // NG2-TO-BE-IMPLEMENTED
+    resetColumnFilters(ids: any[]): void { } // NG2-TO-BE-IMPLEMENTED
+    removeRows(rowIds: any[]): void { }
+    deselectAllRows(): void { };
+    selectAllFiltered(): void { }
+    constructor(...args) {
+        super()
+        var self = this;
+        if (args.length > 0) {
+            var _arg:VxGridConfigBase = args[0]
+            for (let i in _arg) {
+                self[i] = _arg[i];
+            }
+        }
+    }
+
 }
 
 export class VxGridSettingsBase {
@@ -180,12 +191,16 @@ export class VxGridSettingsBase {
     'inlineEditState': Object = {}; // STORES CURRENT ROW EDIT STATE
     'colWithInlineEdits': string[] = [];
     'groupKeys': Object = {};
-    'allRowSelected':boolean = false; // STORES THE STATE FOR ALL ROW SELECTIONS COMPOSED TO ONE PLACE
+    'allRowSelected': boolean = false; // STORES THE STATE FOR ALL ROW SELECTIONS COMPOSED TO ONE PLACE
     'allRowSelectionDisabled': boolean = false; // STORES WHETHER TO ALLOW OR INHIBIT ALL ROW SELECTIONS
     'filterSearchToken': Object = {}; //
     'enteredSearchToken': Object = {}; //
     'saveInProgress': Object = {}; // STORES WHETHER A CREATE/EDIT/DELETE OPERATION IS IN PROGRESS
     'netWidth': number = 0;
+    'activePage':number = 0;
+    'vxPageStartPosition':number  = 0;
+    'pages':number[] = [];
+    'vxPageEnabled':boolean = false;
 }
 
 export interface VxGridComponentInterface {
@@ -225,5 +240,5 @@ export interface VxGridComponentInterface {
     clearSelection(): void
     revealWrapToggle(): void
     clearFilters(): void
-    openManageColumns(content:any): void
+    openManageColumns(content: any): void
 }
