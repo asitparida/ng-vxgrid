@@ -2,6 +2,7 @@ import {
     Component,
     Input,
     OnInit,
+    AfterViewInit,
     ElementRef,
     ViewEncapsulation,
     Directive,
@@ -40,10 +41,10 @@ export class Locator {
     styleUrls: ['./vx.grid.min.css'],
     encapsulation: ViewEncapsulation.None,
     templateUrl: './vxgrid.component.html',
-    providers: [VxNumberFixedLenPipe, DatePipe, Locator]
+    providers: [VxNumberFixedLenPipe, DatePipe]
 })
 
-export class VxGridComponent implements OnInit, VxGridComponentInterface {
+export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentInterface {
     baseConfig: VxGridConfigBase;
     baseSettings: VxGridSettingsBase;
     baseSettingsCount: {};
@@ -60,9 +61,7 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
     multiBoxFilters: MultiBoxFilterItem[];
     private uid: string;
 
-    @ViewChildren(Locator) locators: QueryList<Locator>;
     constructor(private el: ElementRef, private datePipe: DatePipe, private modalService: NgbModal) {
-        this.baseConfig = new VxGridConfigBase();
         this.uid = _.uniqueId('_vx_');
     }
 
@@ -74,8 +73,8 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
 
     resetConfig() {
         var self = this;
+        self.baseConfig = new VxGridConfigBase(self.config);
         self.baseSettings = new VxGridSettingsBase();
-        self.baseConfig = self.config;
         self.baseConfig.id = self.uid;
         self.excess = self.baseConfig.latchExcess || 3;
         self.baseSettingsCount = {};
@@ -192,7 +191,7 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
                                     }), function (item) { return item.value });
                                     uniqed = _.reject(uniqed, function (item) { return typeof item.value === 'undefined' || item.value == {} });
                                     _.each(uniqed.sort(), function (item, iterator) {
-                                        var retKey = getKeyedUnique(item, head.id, 'col');
+                                        var retKey = self.getKeyedUnique(item, head.id, 'col');
                                         var key = retKey.key;
                                         var type = retKey.type;
                                         var name = (item.value === '' || item.value === ' ' ? '< blank >' : item.value);
@@ -247,7 +246,6 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
                                     }));
                                     if (lastCol.col.localeCompare(head.id) != 0) {
                                         _.each(self.baseSettings.colFilterPairs[head.id], function (pair: any) {
-                                            //console.log(pair);
                                             if (_.contains(uniqed2, pair.label) != true)
                                                 pair.disabled = true;
                                             else
@@ -262,30 +260,30 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
                 }
             }
         })
+        self.buildOrAttachFnsToConfig();
+    }
 
-        function getKeyedUnique(item, id, phrase) {
-            var key = phrase + '_' + id + '_key_';
-            var type = 'string';
-            if (item.value == null) {
-                key = key + 'null';
-            }
-            else {
-                if (item.value == null)
-                    key = key + 'null';
-                else if (typeof item.value != 'object') {
-                    key = key + item.value.toString().replace(/\s+/g, '_');
-                    type = item.type;
-                }
-                else {
-                    key = key + JSON.stringify(item.value).replace(/\s+/g, '_');
-                    type = 'object';
-                }
-            }
-            return { 'key': key, 'type': type };
-        }
-
+    buildOrAttachFnsToConfig() {
+        var self = this;
         self.config.loadDataRows = function () {
+            self.baseConfig.noData = false;
+            self.baseConfig.data = [];
             self.baseConfig.data = self.config.data;
+            //noData
+            if (typeof self.config.data !== 'undefined' && self.config.data.length == 0) {
+                self.baseConfig.data = [{ 'fillEmptyElement': true }];
+                self.baseConfig.noData = true;
+                if (self.config.hybrid == true && typeof self.baseConfig !== 'undefined')
+                    $(document.getElementById('_vxHybrid' + self.baseConfig.id)).empty();
+            }
+            if (typeof self.config.data !== 'undefined' && self.config.data.length > 0) {
+                if (self.baseConfig.pagination == true) {
+                    self.baseSettings.pages = _.range(Math.ceil(self.config.data.length / self.baseConfig.pageLength));
+                    self.baseSettings.vxPageEnabled = self.baseSettings.pages.length > 1;
+                    self.baseSettings.activePage = 0;
+                    self.baseSettings.vxPageStartPosition = 0;
+                }
+            }
             var _tbodyElement = self.getHybridTableBody();
             /* GETTING / SETTING PRIMARY COLUMN*/
             var _primaryColDefn: VxGridColumnConfig = _.find(self.baseConfig.headers, function (col) { return col.primary == true });
@@ -321,8 +319,9 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
                 }
                 else
                     self.baseConfig.vxFilteredData = self.baseConfig.data || [];
-                self.prepHybrid();
+                self.resetHybridGrid();
             }
+            //console.log(self);
             // var _cellId = _.uniqueId('_vxCell_');
             // self.baseSettingsCount[_cellId] = 0; 
             // $(_tbodyElement).append('<tr><td (click)="hello()" id= "' + _cellId + '">{{baseConfig}}</td></tr/>');
@@ -335,13 +334,7 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
             //         ])
             //     }
             // } as Mithril.Component<{}>;
-            // m.mount(document.getElementById(_cellId), Mith1); 
-            console.log(self.locators);
-            _.each(self.locators['_results'], function (_locator: any) {
-                console.log(_locator['elementRef']);
-                console.log(typeof _locator['elementRef'].open);
-                _locator['elementRef'].open();
-            });
+            // m.mount(document.getElementById(_cellId), Mith1);
         }
         self.config.getVxCounts = function (): any {
             return {
@@ -394,10 +387,24 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
 
     ngOnInit() {
         this.resetConfig()
+
+    }
+    ngAfterViewInit() {
+        this.config.loadDataRows();
+    }
+
+    activatePage(page) {
+        var self = this;
+        var _oldPage = self.baseSettings.activePage;
+        self.baseSettings.activePage = page;
+        self.baseSettings.vxPageStartPosition = (page > 0 ? page * self.baseConfig.pageLength : 0);
+        self.baseSettings.allRowSelected = false;
+        if (_oldPage != self.baseSettings.activePage && self.baseConfig.hybrid) {
+            self.resetHybridGrid();
+        }
     }
 
     log() {
-        console.log(this.baseSettingsCount);
         for (var i in this.baseSettingsCount) {
             this.baseSettingsCount[i] = 0;
         }
@@ -500,6 +507,27 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
         return false;
     }
 
+    getKeyedUnique(item, id, phrase) {
+        var key = phrase + '_' + id + '_key_';
+        var type = 'string';
+        if (item.value == null) {
+            key = key + 'null';
+        }
+        else {
+            if (item.value == null)
+                key = key + 'null';
+            else if (typeof item.value != 'object') {
+                key = key + item.value.toString().replace(/\s+/g, '_');
+                type = item.type;
+            }
+            else {
+                key = key + JSON.stringify(item.value).replace(/\s+/g, '_');
+                type = 'object';
+            }
+        }
+        return { 'key': key, 'type': type };
+    }
+
     vxMultiBoxFilter(items, criteria) {
         if (typeof criteria !== 'undefined' && criteria != null && criteria.length > 0) {
             var filtered = items;
@@ -546,7 +574,13 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
         self.hybridContainer.empty();
         var _height = self.scrollContainer.height();
         var _initRowCount = Math.ceil(_height / self.rowHeight) + self.excess;
-        var _rows = _.first(self.baseConfig.vxFilteredData, _initRowCount);
+        var _rows = [];
+        if (self.baseConfig.pagination) {
+            _initRowCount = _initRowCount > self.baseConfig.pageLength ? self.baseConfig.pageLength : _initRowCount;
+            _rows = _.first(_.rest(self.baseConfig.vxFilteredData, self.baseSettings.vxPageStartPosition), _initRowCount);
+        }
+        else
+            _rows = _.first(self.baseConfig.vxFilteredData, _initRowCount);
         self.appendRows(_rows);
         self.lastIndexCount = self.lastIndexCount + _initRowCount;
         self.initCheckScrollUpDownArrow();
@@ -657,7 +691,7 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
                         else
                             self.rowSelectionChanged(_rowId);
                     }
-                    console.log(self);
+                    //console.log(self);
                 });
             });
         }
@@ -722,20 +756,22 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
                 self.baseSettings.multiSelected = _.reject(self.baseSettings.multiSelected, function (rs) { return rs.localeCompare(pid) != 0 });
             }
         }
-        console.log(self);
     }
     initCheckScrollUpDownArrow(): void {
         var self = this;
         var _id = 'scroll_up_' + self.baseConfig.id;
         var _elem = document.getElementById(_id);
+
         if (_elem)
             _elem.style.display = "NONE";
         _id = 'scroll_down_' + self.baseConfig.id;
         _elem = document.getElementById(_id);
-        if (_elem && self.baseConfig.noData == true)
-            _elem.style.display = "NONE";
-        else
-            _elem.style.display = "BLOCK";
+        if (_elem) {
+            if (self.baseConfig.noData == true)
+                _elem.style.display = "NONE";
+            else
+                _elem.style.display = "BLOCK";
+        }
 
     }
     prepForScrollInsertion(): void {
@@ -744,12 +780,22 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
         if (self.scrollContainer.scrollTop() > self.lastScrollTop) {
             if (diff < 0)
                 diff = 0;
-            if (diff < self.rowHeight && self.lastIndexCount < self.baseConfig.vxFilteredData.length) {
+            if (diff < self.rowHeight && self.lastIndexCount < self.baseConfig.vxFilteredData.length
+                && (self.baseConfig.pagination == true && self.lastIndexCount < self.baseConfig.pageLength)) {
                 var _initRowCount = self.excess;
-                var _restRows = _.rest(self.baseConfig.vxFilteredData, self.lastIndexCount);
+                var _restRows = [];
+                if (self.baseConfig.pagination == true && self.lastIndexCount < self.baseConfig.pageLength) {
+                    if (_initRowCount + self.lastIndexCount > self.baseConfig.pageLength) {
+                        _initRowCount = self.baseConfig.pageLength - self.lastIndexCount;
+                    }
+                    _restRows = _.rest(self.baseConfig.vxFilteredData, self.baseSettings.vxPageStartPosition + self.lastIndexCount);
+                }
+                else if (!self.baseConfig.pagination)
+                    _restRows = _.rest(self.baseConfig.vxFilteredData, self.lastIndexCount);
                 var _rows = _.first(_restRows, _initRowCount);
                 self.lastIndexCount = self.lastIndexCount + _initRowCount;
                 self.appendRows(_rows);
+                //self.scrollContainer.scrollTo(0, self.scrollContainer.scrollTop() - 48);
             }
             self.checkToScrollDownArrow();
         }
@@ -927,11 +973,49 @@ export class VxGridComponent implements OnInit, VxGridComponentInterface {
     }
     allRowSelectionChanged() {
         var self = this;
-        if (self.baseSettings.allRowSelected) {
-            self.selectAllFiltered()
+        // if (self.baseSettings.allRowSelected) {
+        //     self.selectAllFiltered()
+        // }
+        // else {
+        //     self.clearSelection()
+        // }
+        var toggleTo = self.baseSettings.allRowSelected;
+        if (toggleTo == true) {
+            _.each(self.baseConfig.vxFilteredData, function (row, iter) {
+                var _proceed = true;
+                if (self.baseConfig.pagination == true && self.baseConfig.virtualization == false) {
+                    if (!(iter >= self.baseSettings.vxPageStartPosition && iter < self.baseSettings.vxPageStartPosition + self.baseConfig.pageLength)) {
+                        _proceed = false;
+                    }
+                }
+                if (row.fillEmptyElement != true && _proceed) {
+                    var pid = row[self.baseSettings.primaryId];
+                    if (self.baseSettings.rowSelected[pid] == false && toggleTo == true) {
+                        self.baseSettings.rowSelected[pid] = true;
+                        self.baseSettings.multiSelected.push(pid);
+                        if (self.baseConfig.hybrid == true) {
+                            var _element = $(document.getElementById('vx_row-sel_in_' + pid));
+                            if (typeof _element !== 'undefined' && _element != null && _element.length > 0) {
+                                $(_element).prop('checked', true);
+                            }
+                        }
+                    }
+                }
+            });
+            _.each(self.baseConfig.headers, function (header) {
+                if (self.baseSettings.dropDownGroup[header.id] == true && self.baseSettings.groupByColActivated[header.id] == true) {
+                    _.each(self.baseSettings.groupKeys[header.id], function (key:string) {
+                        self.baseSettings.groupPredicate[key] = true;
+                    });
+                }
+            });
+            self.baseSettings.multiSelected = _.reject(self.baseSettings.multiSelected, function (ml) { return typeof ml === 'undefined' || ml == null || ml == {} })
+            // self.$emit('vxGridRowAllSelectionChange', { 'id': self.baseConfig.id, 'data': { 'toggledTo': toggleTo, 'array': self.baseSettings.multiSelected } });
         }
-        else {
-            self.clearSelection()
+        else if (toggleTo == false) {
+            /* RESET GROUPS SELECTION */
+            self.clearSelection();
+            // self.$emit('vxGridRowAllSelectionChange', { 'id': self.baseConfig.id, 'data': { 'toggledTo': toggleTo, 'array': self.baseSettings.multiSelected } });
         }
     }
     getAllRowLength() { }
