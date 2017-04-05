@@ -30,6 +30,7 @@ export class MultiBoxFilterItem {
 
 export class VxGridColumnConfig {
     id: string = '';
+    columnName:string = '';
     renderDefn?: boolean = false;
     orderLocked?: boolean = false;
     widthLocked?: boolean = false;
@@ -62,18 +63,18 @@ export class VxGridColumnConfig {
     hybridCompile?: boolean = false;
     filterLimit?: number = 10;
     scopeIsRow?: boolean = false;
-    columnClassFn: (any) => string;
+    columnClassFn: (arg:any) => string;
     order: number = 0;
     chars: number = 0;
     selected: boolean = false;
     customSortEnabled: boolean = false;
-    constructor(args) {
+    constructor(args:any) {
         for (let i in args) {
             this[i] = args[i];
         }
     }
-    customSortFn(a, b): number { return 0 };
-    openChangeHeader(state: boolean) { }
+    customSortFn(a:any, b:any): number { return 0 };
+    openChangeHeader(state: boolean):void { }
 }
 
 export class VxGridConfig {
@@ -113,9 +114,9 @@ export class VxGridConfig {
     emptyFill: string = '<span>No records to display ...</span>';
     caption: string = 'sample vx grid table caption';
     loaderGifSrc: string = '/src/loaderWhite36.GIF';
-    sortPredicateFn(a, b): number { return 0 };
-    hybridCellDefn: (any, VxGridColumnConfig) => string;
-    rowClassFn: (any) => string;
+    sortPredicateFn(a:any, b:any): number { return 0 };
+    hybridCellDefn: (res:any, configs:VxGridColumnConfig) => string;
+    rowClassFn: (res:any) => string;
 }
 
 export interface VxGridConfigCallbacks {
@@ -136,19 +137,19 @@ export interface VxGridConfigCallbacks {
 export class VxGridConfigBase extends VxGridConfig implements VxGridConfigCallbacks {
     id: string;
     noData: boolean = false;
-    loadDataRows() { }
-    getVxCounts() { return { vxAllDataLength: 0, vxFilteredDataLength: 0, vxSelectedDataLength: 0 } }
-    getAppliedFilters() { return [] }
-    getFilteredDataSet() { return [] }
-    getSelectedRows() { return [] }
-    selectRows(ids: any[]) { }
-    deselectRows(ids: any[]) { }
+    loadDataRows():void { }
+    getVxCounts():{vxAllDataLength: number, vxFilteredDataLength:number, vxSelectedDataLength:number} { return { vxAllDataLength: 0, vxFilteredDataLength: 0, vxSelectedDataLength: 0 } }
+    getAppliedFilters():any[] { return [] }
+    getFilteredDataSet():any[] { return [] }
+    getSelectedRows():any[] { return [] }
+    selectRows(ids: any[]):void { }
+    deselectRows(ids: any[]):void { }
     sortByColumn(ids: any, direction: boolean): void { } // NG2-TO-BE-IMPLEMENTED
     resetColumnFilters(ids: any[]): void { } // NG2-TO-BE-IMPLEMENTED
     removeRows(rowIds: any[]): void { }
     deselectAllRows(): void { };
     selectAllFiltered(): void { }
-    constructor(...args) {
+    constructor(...args:any[]) {
         super()
         var self = this;
         if (args.length > 0) {
@@ -223,10 +224,10 @@ export interface VxGridComponentInterface {
     hybridGetRowTmpl(row: any): { rowTmpl: string, rowId: string };
     compileAppend(rowTmpl: string, _id: any): void;
     appendRows(_rows: any[]): void;
-    rowSelectionChanged(rowId): void;
+    rowSelectionChanged(rowId:string): void;
     initCheckScrollUpDownArrow(): void;
     prepForScrollInsertion(): void;
-    debPep();
+    debPep() :any;
     getNonHiddenColCount(): number;
     calculateEffectiveWidths(headers: VxGridColumnConfig[]): VxGridColumnConfig[];
     checkToScrollDownArrow(): void;
