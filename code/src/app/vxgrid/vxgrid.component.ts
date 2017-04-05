@@ -67,11 +67,11 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
 
     @Input() config: VxGridConfigBase;
 
-    getHybridTableBody() {
+    getHybridTableBody():HTMLElement {
         return this.el.nativeElement.querySelector('#' + this.baseConfig.id)
     }
 
-    resetConfig() {
+    resetConfig():void {
         var self = this;
         self.baseConfig = new VxGridConfigBase(self.config);
         self.baseSettings = new VxGridSettingsBase();
@@ -93,7 +93,7 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         }
         self.multiBoxFilters = [];
         self.baseSettings.vxRowClass = self.baseConfig['initialRowClasses'] || {};
-        _.each(self.baseConfig.headers, function (col) {
+        _.each(self.baseConfig.headers, function (col:VxGridColumnConfig) {
 
             col.effectiveWidth = col.width;
             col.idCollection = [];
@@ -130,11 +130,10 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         if (self.baseConfig.hybrid == true) {
             if (self.baseConfig.selectionEnabled && self.baseConfig.allRowsSelectionEnabled) {
                 var _selectionHead = self.el.nativeElement.querySelector('#' + self.baseConfig.id + '_vxHeadSt_' + 'checkbox');
-
             }
         }
-        _.each(self.baseConfig.headers, function (head) {
-            head.openChangeHeader = function (data) {
+        _.each(self.baseConfig.headers, function (head:VxGridColumnConfig) {
+            head.openChangeHeader = function (data:boolean) {
                 if (data == true && self.baseSettings.dropdDownEnabled[head.id] == true) {
                     self.baseSettings.dropdDownLoaded[head.id] = false;
                     self.baseSettings.dropdDownOpen[head.id] = !self.baseSettings.dropdDownOpen[head.id];
@@ -174,8 +173,8 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
                                 if (filterListForColAvailable == false) {
                                     self.baseSettings.dropDownFilters[head.id] = true;
                                     self.baseSettings.colFilterPairs[head.id] = [];
-                                    var _pairs = [];
-                                    var uniqed = _.uniq(_.map(self.baseConfig.data, function (item) {
+                                    var _pairs:any[] = [];
+                                    var uniqed = _.uniq(_.map(self.baseConfig.data, function (item:any) {
                                         var ret = { 'value': item[head.id], 'type': '' };
                                         if (typeof ret.value !== 'undefined' && ret.value != null && ret.value != {} && typeof ret.value != 'object' && typeof ret.value != 'number' && typeof ret.value != 'boolean') {
                                             ret.value = ret.value.trim();
@@ -188,9 +187,9 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
                                             ret.type = 'date';
                                         }
                                         return ret;
-                                    }), function (item) { return item.value });
+                                    }), function (item:any) { return item.value });
                                     uniqed = _.reject(uniqed, function (item) { return typeof item.value === 'undefined' || item.value == {} });
-                                    _.each(uniqed.sort(), function (item, iterator) {
+                                    _.each(uniqed.sort(), function (item:any, iterator:number) {
                                         var retKey = self.getKeyedUnique(item, head.id, 'col');
                                         var key = retKey.key;
                                         var type = retKey.type;
@@ -263,9 +262,9 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         self.buildOrAttachFnsToConfig();
     }
 
-    buildOrAttachFnsToConfig() {
+    buildOrAttachFnsToConfig():void {
         var self = this;
-        self.config.loadDataRows = function () {
+        self.config.loadDataRows = function () : void {
             self.baseConfig.noData = false;
             self.baseConfig.data = [];
             self.baseConfig.data = self.config.data;
@@ -307,7 +306,7 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
             self.baseSettings.primaryId = primaryId;
             if (self.baseConfig.selectionEnabled == true) {
                 /* SEETING ALL ROW SELECTIONS TO FALSE */
-                _.each(self.baseConfig.data, function (row, index) {
+                _.each(self.baseConfig.data, function (row:any, index:number) {
                     var rowId = row[self.baseSettings.primaryId];
                     self.baseSettings.rowSelected[rowId] = false;
                     self.baseSettings.vxRowSelectionDisable[rowId] = false;
@@ -393,7 +392,7 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         this.config.loadDataRows();
     }
 
-    activatePage(page) {
+    activatePage(page:number) {
         var self = this;
         var _oldPage = self.baseSettings.activePage;
         self.baseSettings.activePage = page;
@@ -411,9 +410,9 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         m.redraw();
     }
 
-    sortClick(header) {
+    sortClick(header:VxGridColumnConfig) {
         var self = this;
-        var _colDefn = _.find(self.baseConfig.headers, function (col) { return col.id.localeCompare(header.id) == 0 });
+        var _colDefn = _.find(self.baseConfig.headers, function (col:VxGridColumnConfig) { return col.id.localeCompare(header.id) == 0 });
         if (typeof _colDefn !== 'undefined' && _colDefn != null) {
             if (_colDefn.ddSort) {
                 if (self.baseConfig.sortPredicate.localeCompare(_colDefn.id) != 0) {
@@ -439,7 +438,7 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         }
     }
 
-    filterClick(header, filter) {
+    filterClick(header:VxGridColumnConfig, filter:any) {
         var self = this;
         if (self.baseConfig.preserveSelectionOnFilters == false)
             self.clearSelection();
@@ -464,7 +463,7 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         }
     }
 
-    filterClearClick(header) {
+    filterClearClick(header:VxGridColumnConfig) {
         var self = this;
         if (self.baseSettings.colFiltersActivated[header.id] == true) {
             self.clearSelection();
@@ -491,7 +490,7 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         }
     }
 
-    filterAssignVar($event, header) {
+    filterAssignVar($event:Event, header:VxGridColumnConfig) {
         var self = this;
         $event.preventDefault();
         $event.stopPropagation();
@@ -501,13 +500,13 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         }
     }
 
-    preventCollapse($event) {
+    preventCollapse($event:Event) {
         $event.preventDefault();
         $event.stopPropagation();
         return false;
     }
 
-    getKeyedUnique(item, id, phrase) {
+    getKeyedUnique(item:any, id:string, phrase:string) {
         var key = phrase + '_' + id + '_key_';
         var type = 'string';
         if (item.value == null) {
@@ -528,14 +527,14 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         return { 'key': key, 'type': type };
     }
 
-    vxMultiBoxFilter(items, criteria) {
+    vxMultiBoxFilter(items:any[], criteria:any) {
         if (typeof criteria !== 'undefined' && criteria != null && criteria.length > 0) {
             var filtered = items;
             var copyOfItems = items;
             var filterGroups = _.groupBy(criteria, 'col');
             for (var columnFound in filterGroups) {
                 var matches = filterGroups[columnFound];
-                var unionedMatches = [];
+                var unionedMatches:any[] = [];
                 _.each(matches, function (match: any) {
                     unionedMatches = _.union(unionedMatches, _.filter(copyOfItems, function (item: any) {
                         if (typeof match.label !== 'undefined' && match.label != null && match.label != {} && typeof item[match.col] !== 'undefined' && item[match.col] != null && item[match.col] != {}) {
@@ -574,7 +573,7 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         self.hybridContainer.empty();
         var _height = self.scrollContainer.height();
         var _initRowCount = Math.ceil(_height / self.rowHeight) + self.excess;
-        var _rows = [];
+        var _rows:any[] = [];
         if (self.baseConfig.pagination) {
             _initRowCount = _initRowCount > self.baseConfig.pageLength ? self.baseConfig.pageLength : _initRowCount;
             _rows = _.first(_.rest(self.baseConfig.vxFilteredData, self.baseSettings.vxPageStartPosition), _initRowCount);
@@ -658,7 +657,7 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         rowTmpl = rowTmpl.replaceAll('VX_ALL_CELLS', allCells);
         return { 'rowTmpl': rowTmpl, 'rowId': rowId };
     }
-    compileAppend(rowTmpl, _id) {
+    compileAppend(rowTmpl:string, _id:string) {
         this.hybridContainer && this.hybridContainer.append(rowTmpl);
     }
     appendRows(rows: any[]) {
@@ -709,12 +708,12 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         self.baseConfig.data = _.reject(self.config.data, function (row) { return _.contains(rowIds, row[self.baseSettings.primaryId].toString()) == true });
         self.baseSettings.multiSelected = _.difference(self.baseSettings.multiSelected, rowIds);
     }
-    rowSelectionChanged(rowId) {
-        var pid = rowId;
+    rowSelectionChanged(rowId:string) {
+        var pid:string = rowId;
         var self = this;
         var row = _.find(self.baseConfig.data, function (_row) { return _row[self.baseSettings.primaryId] == rowId });
         var result = { 'key': row[self.baseConfig.onSelectionReturnCol], 'value': self.baseSettings.rowSelected[pid], '_pKey': pid };
-        var proceed = true;
+        var proceed:boolean = true;
         if (self.baseSettings.rowSelected[pid] == true && self.baseSettings.multiSelColDependent == true) {
             proceed = false;
             var colId = self.baseConfig.multiSelectionDependentCol;
@@ -783,7 +782,7 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
             if (diff < self.rowHeight && self.lastIndexCount < self.baseConfig.vxFilteredData.length
                 && (self.baseConfig.pagination == true && self.lastIndexCount < self.baseConfig.pageLength)) {
                 var _initRowCount = self.excess;
-                var _restRows = [];
+                var _restRows:any[] = [];
                 if (self.baseConfig.pagination == true && self.lastIndexCount < self.baseConfig.pageLength) {
                     if (_initRowCount + self.lastIndexCount > self.baseConfig.pageLength) {
                         _initRowCount = self.baseConfig.pageLength - self.lastIndexCount;
@@ -897,8 +896,8 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         var self = this;
         self.baseSettings.revealWrapRowData = !self.baseSettings.revealWrapRowData;
     }
-    selectRows = function (ids) {
-        var _modIds = [];
+    selectRows = function (ids:string[]) {
+        var _modIds:string[] = [];
         var self = this;
         _.each(ids, function (_id: string) {
             var _ostate = self.baseSettings.rowSelected[_id];
@@ -916,8 +915,8 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
         });
         return _modIds;
     }
-    deselectRows = function (ids) {
-        var _modIds = [];
+    deselectRows = function (ids:any[]) {
+        var _modIds:string[] = [];
         var self = this;
         _.each(ids, function (_id: string) {
             var _ostate = self.baseSettings.rowSelected[_id];
@@ -945,7 +944,7 @@ export class VxGridComponent implements OnInit, AfterViewInit, VxGridComponentIn
             _copyConfig.push(_copyHead);
         });
         modalRef.componentInstance.copyForWidthVisChange = _copyConfig;
-        _.each(modalRef.componentInstance.copyForWidthVisChange, function (col: VxGridColumnConfig, i) {
+        _.each(modalRef.componentInstance.copyForWidthVisChange, function (col: VxGridColumnConfig, i:number) {
             col.order = i;
             col.chars = Math.ceil((col.width - 20) / 7);
             col.selected = false;

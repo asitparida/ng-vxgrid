@@ -1,5 +1,11 @@
 import { BrowserModule } from '@angular/platform-browser';
-import { NgModule, ComponentFactoryResolver, OpaqueToken, Injectable, Inject } from '@angular/core';
+import { 
+    NgModule, 
+    ComponentFactoryResolver, 
+    OpaqueToken, 
+    Injectable, 
+    Inject 
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpModule } from '@angular/http';
 import { AppComponent } from './app.component';
@@ -7,7 +13,6 @@ import { ROUTING } from "./app.routing";
 import { HomeComponent } from "./home/home.component";
 import { VxGridModule } from "./vxgrid/vxgrid.module";
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
-export let APP_CONFIG = new OpaqueToken('app.config');
 
 @NgModule({
     declarations: [
@@ -22,16 +27,18 @@ export let APP_CONFIG = new OpaqueToken('app.config');
         ROUTING,
         NgbModule.forRoot()
     ],
-    providers: [
-        { provide : APP_CONFIG, useValue: window['selectors']}
-    ],
-    entryComponents:[AppComponent]    
+    providers: [],
+    entryComponents:[AppComponent]
 })
 export class AppModule {
-    constructor(private resolver: ComponentFactoryResolver, @Inject(APP_CONFIG) private bootStrapConfig : Array<any>) {        
+    constructor(private resolver: ComponentFactoryResolver) {        
     }
-    ngDoBootstrap(moduleRef) {               
-        for(let _selector of this.bootStrapConfig)
+    getWindowRef():Window{
+        return window;
+    }
+    ngDoBootstrap(moduleRef:any) {   
+        var self = this;            
+        for(let _selector of self.getWindowRef()['selectors'])
         {
             let factory = this.resolver.resolveComponentFactory(AppComponent);
             factory.selector = _selector;

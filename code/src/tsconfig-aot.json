@@ -25,11 +25,12 @@
             "node_modules/@types"
         ],
         "types": [
-          "jasmine",
+         "jasmine",
           "core-js",
           "node",
           "underscore",
-          "jquery"
+          "jquery",
+          "mithril"
         ]
     },
     "exclude": [

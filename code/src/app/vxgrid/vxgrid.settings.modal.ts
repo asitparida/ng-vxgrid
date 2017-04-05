@@ -15,22 +15,22 @@ export class VxGridSettingsModal {
 
     constructor(public activeModal: NgbActiveModal) { }
 
-    makeVisible(head) {
+    makeVisible(head:VxGridColumnConfig) {
         var self = this;
         var header = _.find(self.copyForWidthVisChange, function (i) { return i.id.localeCompare(head.id) == 0 });
         if (typeof header !== 'undefined' && header != null && header != {} && header.visbilityLocked == false)
             header.hidden = false;
     }
-    makeHidden(head) {
+    makeHidden(head:VxGridColumnConfig) {
         var self = this;
         var header = _.find(self.copyForWidthVisChange, function (i) { return i.id.localeCompare(head.id) == 0 });
         if (typeof header !== 'undefined' && header != null && header != {} && header.visbilityLocked == false)
             header.hidden = true;
     }
-    widthChanged(header) {
+    widthChanged(header:VxGridColumnConfig) {
         header.width = Math.ceil(header.chars * 7) + 20;
     }
-    swapAbove(header) {
+    swapAbove(header:VxGridColumnConfig) {
         var self = this;
         if (header.locked == false) {
             var swapFrom = header.order;
@@ -53,7 +53,7 @@ export class VxGridSettingsModal {
             self.copyForWidthVisChange = _.sortBy(self.copyForWidthVisChange, 'order');
         }
     }
-    swapBelow(header) {
+    swapBelow(header:VxGridColumnConfig) {
         var self = this;
         if (header.locked == false) {
             var swapFrom = header.order;
@@ -81,7 +81,7 @@ export class VxGridSettingsModal {
     }
     saveChangeInConfig() {
         var self = this;
-        var newConfig = [];
+        var newConfig:VxGridColumnConfig[] = [];
         newConfig = _.sortBy(self.copyForWidthVisChange, function (col) {
             var column = _.find(self.copyForWidthVisChange, function (item) { return item.id.localeCompare(col.id) == 0 });
             if (typeof column !== 'undefined' && column != null && column != {})
@@ -91,7 +91,7 @@ export class VxGridSettingsModal {
         });
         this.activeModal.close(newConfig);
     }
-    selectHeader = function (header) {
+    selectHeader(header:VxGridColumnConfig) {
         var self = this;
         if (header.locked == true)
             return;
@@ -107,7 +107,7 @@ export class VxGridSettingsModal {
             self.headerSelected = null;
         }
     }
-    upDownKeyPressHandler = function (e) {
+    upDownKeyPressHandler = function (e:KeyboardEvent) {
         var self = this;
         var _prevent = false;
         if (e.keyCode == 38 || e.keyCode == 40) {
@@ -119,7 +119,7 @@ export class VxGridSettingsModal {
             e.preventDefault();
         }
     }
-    upDownMovement = function (e) {
+    upDownMovement = function (e:KeyboardEvent) {
         var self = this;
         var _movement = false;
         if (e.keyCode == 38) {
