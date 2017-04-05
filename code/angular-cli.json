@@ -36,11 +36,7 @@
     "addons": [],
     "packages": [],
     "e2e": {},
-    "test": {
-        "karma": {
-            "config": "./karma.conf.js"
-        }
-    },
+    "test": {},
     "defaults": {
         "styleExt": "scss",
         "prefixInterfaces": false,
